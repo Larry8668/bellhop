@@ -8,7 +8,7 @@ import { startTestProvider, type TestProvider } from '@bellhop/provider/testing'
 import { createApiApp } from '../../src/api/app.js';
 import { createUserQueue } from '../../src/core/queue/user-queue.js';
 import { createProviderAdminClient, createProviderClient } from '../../src/provider-client/index.js';
-import { setupTestAuth, signUpAndSignIn, WEB_ORIGIN } from './test-helpers.js';
+import { createApiKeyUser, setupTestAuth, signUpAndSignIn, WEB_ORIGIN } from './test-helpers.js';
 
 const LIMITS = { statusChecks: 3, retriesPerTool: 2 } as const;
 
@@ -72,7 +72,6 @@ describe('proposals API (Phase 2 wave 3c)', () => {
       body: JSON.stringify({
         action: 'book',
         provider_id: p.id,
-        provider_name: p.name,
         service: 'plumber',
         slot,
       }),
@@ -129,7 +128,6 @@ describe('proposals API (Phase 2 wave 3c)', () => {
       body: JSON.stringify({
         action: 'book',
         provider_id: p.id,
-        provider_name: p.name,
         service: 'plumber',
         slot,
       }),
@@ -139,7 +137,9 @@ describe('proposals API (Phase 2 wave 3c)', () => {
     const badApprove = await app.request(`/api/proposals/${proposal.id}/approve`, {
       method: 'POST',
       headers: { cookie: user.cookie, 'content-type': 'application/json' },
-      body: JSON.stringify({ hash: 'definitely-not-the-hash' }),
+      // A 64-hex string so it passes the request-schema format check and reaches
+      // the business-logic hash comparison (plan §7 gate fix item 6).
+      body: JSON.stringify({ hash: '0'.repeat(64) }),
     });
     expect(badApprove.status).toBe(409);
     const badBody = (await badApprove.json()) as { error: { code: string } };
@@ -205,7 +205,6 @@ describe('proposals API (Phase 2 wave 3c)', () => {
       body: JSON.stringify({
         action: 'book',
         provider_id: p.id,
-        provider_name: p.name,
         service: 'plumber',
         slot,
       }),
@@ -249,7 +248,6 @@ describe('proposals API (Phase 2 wave 3c)', () => {
       body: JSON.stringify({
         action: 'book',
         provider_id: p.id,
-        provider_name: p.name,
         service: 'plumber',
         slot,
         user_id: 'evil',
@@ -263,7 +261,6 @@ describe('proposals API (Phase 2 wave 3c)', () => {
       body: JSON.stringify({
         action: 'book',
         provider_id: p.id,
-        provider_name: p.name,
         service: 'plumber',
         slot,
       }),
@@ -295,11 +292,78 @@ describe('proposals API (Phase 2 wave 3c)', () => {
       body: JSON.stringify({
         action: 'book',
         provider_id: 'x',
-        provider_name: 'X',
         service: 'plumber',
         slot: { start: '2026-11-10T09:00:00.000Z', end: '2026-11-10T10:00:00.000Z' },
       }),
     });
     expect(res.status).toBe(401);
+  });
+
+  it('approvals require a browser session: an API key gets 403 and books nothing; the session can still approve', async () => {
+    await admin.reset({ seed: 46 });
+    const { app } = await makeApp();
+    const { user, apiKey } = await createApiKeyUser(app);
+    const me = (await (
+      await app.request('/api/me', { headers: { cookie: user.cookie } })
+    ).json()) as { user: { id: string } };
+
+    const from = tp.clock.now().toISOString();
+    const to = new Date(tp.clock.nowMs() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const search = await providerClient.search_providers(
+      me.user.id,
+      { service: 'plumber', area: 'Indiranagar', date_range: { from, to } },
+      { requestId: 't-proposals-session-gate' },
+    );
+    const p = search.providers[0];
+    if (!p) throw new Error('expected provider');
+    const slot: Slot = p.slots[0] as Slot;
+
+    // Creating a proposal is also session-only (plan §7 gate fix item 1).
+    const apiKeyPropose = await app.request('/api/proposals', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'book', provider_id: p.id, service: 'plumber', slot }),
+    });
+    expect(apiKeyPropose.status).toBe(403);
+    expect(((await apiKeyPropose.json()) as { error: { code: string } }).error.code).toBe('session_required');
+
+    const proposeRes = await app.request('/api/proposals', {
+      method: 'POST',
+      headers: { cookie: user.cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'book', provider_id: p.id, service: 'plumber', slot }),
+    });
+    expect(proposeRes.status).toBe(200);
+    const { proposal } = (await proposeRes.json()) as { proposal: { id: string; hash: string } };
+
+    await admin.scenario({ outcomes: ['BOOK_SUCCESS'] });
+
+    const apiKeyApprove = await app.request(`/api/proposals/${proposal.id}/approve`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ hash: proposal.hash }),
+    });
+    expect(apiKeyApprove.status).toBe(403);
+    expect(((await apiKeyApprove.json()) as { error: { code: string } }).error.code).toBe('session_required');
+
+    const apiKeyDecline = await app.request(`/api/proposals/${proposal.id}/decline`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${apiKey}` },
+    });
+    expect(apiKeyDecline.status).toBe(403);
+    expect(((await apiKeyDecline.json()) as { error: { code: string } }).error.code).toBe('session_required');
+
+    let state = await admin.state();
+    expect(state.bookings.filter((b) => b.user_id === me.user.id)).toHaveLength(0);
+
+    const sessionApprove = await app.request(`/api/proposals/${proposal.id}/approve`, {
+      method: 'POST',
+      headers: { cookie: user.cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ hash: proposal.hash }),
+    });
+    expect(sessionApprove.status).toBe(200);
+    expect(((await sessionApprove.json()) as { outcome: { kind: string } }).outcome.kind).toBe('booked');
+
+    state = await admin.state();
+    expect(state.bookings.filter((b) => b.user_id === me.user.id)).toHaveLength(1);
   });
 });

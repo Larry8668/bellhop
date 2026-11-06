@@ -345,7 +345,10 @@ export const mockApi: Api = {
         id,
         action: 'book',
         provider_id: input.provider_id,
-        provider_name: input.provider_name,
+        // No `provider_name` on the request (plan §7 gate fix item 5); the
+        // mock stands in a placeholder the same way the real server would
+        // derive one server-side instead of trusting client-supplied text.
+        provider_name: `Provider ${input.provider_id}`,
         service: input.service,
         slot: input.slot,
         price: 1999,
