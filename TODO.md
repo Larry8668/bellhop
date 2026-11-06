@@ -13,17 +13,20 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 - [ ] First gate review at end of Phase 2 — record timings per reviewer model
 - [ ] Branch protection on `main`: needs GitHub Pro or public repo; revisit when either changes
 
-## Phase 0 — Scaffold
+## Phase 0 — Scaffold (PR #7)
 
-- [ ] npm workspaces: `provider/`, `server/`, `web/`
-- [ ] TS config, Vitest, `better-sqlite3`, zod
-- [ ] `server/src/config.ts` (model, limits, budgets, provider URL)
-- [ ] Trace writer skeleton (JSONL)
-- [ ] Logger module (pino, child loggers per module, `LOG_LEVEL`, run_id/turn_id correlation) shared by provider + server
-- [ ] Ollama smoke test via `ai-sdk-ollama` (`think: false`, `num_ctx: 8192`, `reliableToolCalling: false`)
-- [ ] Mock-model smoke test (`MockLanguageModelV4` + `ToolLoopAgent`)
-- [ ] README skeleton, `BUGS.md`
-- [ ] Verify: Better Auth + `better-sqlite3` adapter; MCP SDK v2 package name/API; `ai-sdk-ollama` peer range for `ai` 7.0.x
+- [x] npm workspaces: `shared/`, `provider/`, `server/` (`web/` added in Phase 6)
+- [x] TS config, ESLint flat config, Vitest, `better-sqlite3`, zod
+- [x] `server/src/config.ts` (model, limits, budgets, provider URL)
+- [x] Trace writer skeleton (JSONL) + result sanitizer + cost table
+- [x] Logger module (pino, child loggers per module, `LOG_LEVEL`) in `@bellhop/shared`
+- [x] Ollama smoke test via `ai-sdk-ollama` (`think: false`, `num_ctx: 8192`, `reliableToolCalling: false`)
+- [x] Mock-model smoke test (`MockLanguageModelV4` + `ToolLoopAgent`)
+- [x] README skeleton, `BUGS.md`
+- [x] Verified `ai-sdk-ollama` 4.x with `ai` 7.0.x (smoke test passes)
+- [ ] Verify before Phase 6/7: Better Auth + `better-sqlite3` adapter; MCP SDK v2 package name/API
+- [ ] Fill in README (setup, scripts, layout) once Phase 1 lands
+- [ ] `PORT=` (empty string) coerces to 0 in provider config; tighten to "unset or valid" if it bites
 
 ## Phase 1 — Provider service
 
