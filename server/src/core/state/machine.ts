@@ -10,12 +10,13 @@ import type { TaskState, TaskStateName } from '../types.js';
  *   GATHERING → SEARCHING → COMPARING → PROPOSED → APPROVED → EXECUTING → VERIFYING → DONE
  *   back-edges: APPROVED/EXECUTING/VERIFYING → PROPOSED (material change / hold expired / slot_taken)
  *   COMPARING → SEARCHING, PROPOSED → SEARCHING (user declines / alternatives)
+ *   GATHERING → PROPOSED (cancel/reschedule skip the search, plan §6)
  *   any state → FAILED, any state → LIMIT_EXCEEDED
  *   DONE/FAILED/LIMIT_EXCEEDED → GATHERING (new errand)
  * No self-edges; nothing else is allowed.
  */
 export const TRANSITIONS: Record<TaskStateName, readonly TaskStateName[]> = {
-  GATHERING: ['SEARCHING', 'FAILED', 'LIMIT_EXCEEDED'],
+  GATHERING: ['SEARCHING', 'PROPOSED', 'FAILED', 'LIMIT_EXCEEDED'],
   SEARCHING: ['COMPARING', 'FAILED', 'LIMIT_EXCEEDED'],
   COMPARING: ['PROPOSED', 'SEARCHING', 'FAILED', 'LIMIT_EXCEEDED'],
   PROPOSED: ['APPROVED', 'SEARCHING', 'FAILED', 'LIMIT_EXCEEDED'],
