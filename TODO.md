@@ -10,7 +10,7 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 - [ ] Confirm deadline → decide how firmly phases 7–9 stay in scope
 - [ ] `.delegate/` transcripts are never cleaned up; add a prune step (review-security MINOR)
 - [ ] Stub-`agent` test for delegate.sh / review-panel.sh failure paths (reviewers' MAJOR; low priority)
-- [ ] First gate review at end of Phase 2 — record timings per reviewer model
+- [x] First gate review at end of Phase 2 — timings in LOGS 2026-11-06
 - [ ] Branch protection on `main`: needs GitHub Pro or public repo; revisit when either changes
 
 ## Phase 0 — Scaffold (PR #7)
@@ -66,7 +66,8 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 - [x] Per-user promise queue (one instance shared by API and MCP)
 - [x] EVALS reporter (`task.meta.expected/actual`), `createCoreEngine` facade, `x-request-id` server → provider
 - [x] Scenarios 6, 9–11, 13–16, H1–H10 (22 rows in `EVALS.md`)
-- [ ] Gate review panel on the Phase 2 → `main` PR — run; blockers being fixed (see LOGS 2026-11-06)
+- [x] Gate review panel on the Phase 2 → `main` PR — 2 BLOCKERs + MAJORs fixed, re-review clean (see LOGS 2026-11-06)
+- [ ] `test/mcp/propose.test.ts` cross-user `list_proposals` failed once under full-suite load (1 of 5 runs); not reproduced in isolation — investigate before Phase 3 adds load
 - [ ] Gate deferrals: move the identical `request-id` middleware (server/provider) into `@bellhop/shared`; `approvals.approveOrReplay` in core so the HTTP route stops holding replay logic; per-user proposal rate limit (hold exhaustion)
 - [ ] Provider: admin knob for hold-price drift direction (H4/H5 currently pinned by RNG seed)
 - [ ] Provider: expose `idempotency_key` per booking in `/__admin/state` so invariant "one booking per key" can be asserted exactly

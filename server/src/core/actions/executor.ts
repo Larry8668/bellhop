@@ -120,11 +120,17 @@ export function createExecutor(deps: ExecutorDeps): Executor {
     }
   }
 
-  /** Plan §7/§8: the consume and the `pending` intent commit together, so a crash between them can't strand an approval. */
-  const claim = db.transaction((userId: string, approvalId: string, action: Action) => {
+  /**
+   * Plan §7/§8: the consume and the `pending` intent commit together, so a
+   * crash between them can't strand an approval; their trace events are held
+   * until the commit so a rollback leaves no "consumed" record behind.
+   */
+  const claimTxn = db.transaction((userId: string, approvalId: string, action: Action) => {
     if (!approvals.consume(userId, approvalId)) return undefined;
     return intents.begin(userId, approvalId, action);
   });
+  const claim = (userId: string, approvalId: string, action: Action) =>
+    trace.atomic(() => claimTxn(userId, approvalId, action));
 
   async function execute(userId: string, approvalId: string): Promise<ExecutionOutcome> {
     const approval = approvalsRepo.get(userId, approvalId);

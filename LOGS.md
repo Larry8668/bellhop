@@ -96,6 +96,10 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 - Deferred to `TODO.md`: shared request-id middleware, `approveOrReplay` in core, per-user proposal rate limit.
 - Panel diff was truncated at 120 k chars (112 files) — next gates should run on smaller PRs or with `BASE=<last gate tag>`.
 
+**Gate re-review (security + correctness on the fix diff): both APPROVE, two follow-ups fixed before merge.**
+- Trace could record `approval consumed` for a transaction that then rolled back (consume emitted to disk before `intents.begin` threw). `TraceWriter.atomic(fn)` now buffers events raised inside the claim transaction and drops them on throw. Test: `executor.test.ts` "intents.begin throws" asserts no consumed/intent trace rows.
+- Restart retry of a `not_booked` book intent ignored whether the user had moved on. `resolve-intents` now refuses the same-key retry when the task is no longer in flight or a newer approval exists (`approvals.getLatestForUser`) and fails the intent `superseded`. Decision: a stale pre-crash approval is never acted on behind the user's back; the existing test that expected a booking in that case was wrong and is replaced by two tests.
+
 **Next**
-- Merge the gate fixes (PRs into `feat/phase-2-core`), re-run only security + correctness on the fix diff, merge #31.
+- Merge #31 into `main`, tag `gate-phase-2`.
 - Phase 3: harness (ToolLoopAgent, tools incl. `propose_*` validation against `task_state`, context layer, limits, per-turn trace), scenarios 1–5, 23–28.

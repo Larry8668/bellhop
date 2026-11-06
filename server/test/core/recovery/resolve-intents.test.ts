@@ -196,7 +196,7 @@ describe('resolvePendingIntents (plan §8 startup recovery)', () => {
     expect(stateOf(harness)).toBe('EXECUTING');
   });
 
-  it('a task that has moved on keeps its state; only the intent is resolved', async () => {
+  it('user moved on (task no longer in flight) → the old hold is NOT retried; intent failed, nothing booked', async () => {
     harness = await createCoreHarness();
     const hold = await holdFirstSlot(harness);
     const key = 'book_after_new_errand';
@@ -205,8 +205,28 @@ describe('resolvePendingIntents (plan §8 startup recovery)', () => {
 
     const result = await recover(harness);
 
-    expect(result.succeeded).toBe(1);
+    expect(result).toEqual({ resolved: 1, succeeded: 0, failed: 1, stillUnknown: 0 });
+    expect(harness.providerCalls().map((c) => c.tool)).toEqual(['get_booking_status']);
+    expect(createIntentsRepo(harness.db).get(key)).toMatchObject({ status: 'failed' });
+    expect(harness.providerBookings()).toHaveLength(0);
     expect(stateOf(harness)).toBe('PROPOSED');
+  });
+
+  it('user approved something newer while the task is in flight → the old hold is NOT retried', async () => {
+    harness = await createCoreHarness();
+    const hold = await holdFirstSlot(harness);
+    const key = 'book_superseded_by_newer_approval';
+    seedBookIntent(harness, hold, key);
+    // A newer approval for a different proposal (fixtures share a fixed created_at, so set it explicitly).
+    const { approval: newer } = seedApprovedProposal(harness);
+    harness.db.prepare('UPDATE approvals SET created_at = ? WHERE id = ?').run('2099-01-01T00:00:00.000Z', newer.id);
+    driveTo(harness, IN_FLIGHT);
+
+    const result = await recover(harness);
+
+    expect(result.failed).toBe(1);
+    expect(harness.providerCalls().map((c) => c.tool)).toEqual(['get_booking_status']);
+    expect(harness.providerBookings()).toHaveLength(0);
   });
 
   it('provider down (closed server) leaves the intent unknown and never throws', async () => {

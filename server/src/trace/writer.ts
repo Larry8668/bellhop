@@ -7,6 +7,38 @@ import type { TraceEvent, TraceEventInput } from './types.js';
 export interface TraceWriter {
   path: string;
   emit(event: TraceEventInput): void;
+  /**
+   * Runs `fn` with emits held back; they are written only if `fn` returns.
+   * Wrap a db transaction in it so a rolled-back write never leaves a trace
+   * record claiming it happened.
+   */
+  atomic<T>(fn: () => T): T;
+}
+
+/** Shared emit/atomic behaviour over a raw sink, reused by the file writer and the test fake. */
+export function createEmitter(write: (event: TraceEventInput) => void): Pick<TraceWriter, 'emit' | 'atomic'> {
+  let held: TraceEventInput[] | null = null;
+  return {
+    emit(event) {
+      if (held !== null) held.push(event);
+      else write(event);
+    },
+    atomic(fn) {
+      const outer = held;
+      held = [];
+      let result;
+      try {
+        result = fn();
+      } catch (err) {
+        held = outer;
+        throw err;
+      }
+      const flushed = held;
+      held = outer;
+      for (const event of flushed) this.emit(event);
+      return result;
+    },
+  };
 }
 
 const traceLogger = createLogger({ name: 'bellhop-server' });
@@ -31,7 +63,7 @@ export function createTraceWriter({
 
   return {
     path: filePath,
-    emit(event: TraceEventInput): void {
+    ...createEmitter((event) => {
       const fullEvent = {
         ...event,
         run_id: runId,
@@ -40,6 +72,6 @@ export function createTraceWriter({
 
       appendFileSync(filePath, `${JSON.stringify(fullEvent)}\n`);
       log.debug({ type: fullEvent.type }, 'trace event emitted');
-    },
+    }),
   };
 }

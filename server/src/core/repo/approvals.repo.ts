@@ -23,6 +23,8 @@ export interface ApprovalsRepo {
   getValidForProposal(userId: string, proposalId: string): Approval | undefined;
   /** Newest approval for the proposal in any status — used to replay a repeated Confirm (plan §8). */
   getLatestForProposal(userId: string, proposalId: string): Approval | undefined;
+  /** Newest approval the user has created in any status. */
+  getLatestForUser(userId: string): Approval | undefined;
   /**
    * Atomic consume (plan §7): `UPDATE … WHERE id = ? AND status = 'valid'`,
    * `true` only if exactly one row changed. The compare-and-set is the
@@ -45,6 +47,9 @@ export function createApprovalsRepo(db: Database.Database): ApprovalsRepo {
   );
   const selectLatestForProposalStmt = db.prepare(
     `SELECT * FROM approvals WHERE user_id = ? AND proposal_id = ? ORDER BY created_at DESC LIMIT 1`,
+  );
+  const selectLatestForUserStmt = db.prepare(
+    `SELECT * FROM approvals WHERE user_id = ? ORDER BY created_at DESC LIMIT 1`,
   );
   const consumeStmt = db.prepare(`UPDATE approvals SET status='consumed', consumed_at=? WHERE id=? AND status='valid'`);
   const voidStmt = db.prepare(`UPDATE approvals SET status='void', void_reason=? WHERE id=? AND status='valid'`);
@@ -76,6 +81,11 @@ export function createApprovalsRepo(db: Database.Database): ApprovalsRepo {
 
     getLatestForProposal(userId: string, proposalId: string): Approval | undefined {
       const row = selectLatestForProposalStmt.get(userId, proposalId) as ApprovalRow | undefined;
+      return row === undefined ? undefined : toDomain(row);
+    },
+
+    getLatestForUser(userId: string): Approval | undefined {
+      const row = selectLatestForUserStmt.get(userId) as ApprovalRow | undefined;
       return row === undefined ? undefined : toDomain(row);
     },
 

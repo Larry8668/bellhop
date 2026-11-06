@@ -80,6 +80,19 @@ function settleTaskState(ctx: RecoveryContext, intent: Intent, to: 'DONE' | 'FAI
 }
 
 /** Walks intent → approval → proposal: only the approved proposal knows the hold / booking id (plan §5/§7). */
+function hasMovedOn(ctx: RecoveryContext, intent: Intent): boolean {
+  const state = ctx.taskStateRepo.get(intent.user_id)?.state ?? 'GATHERING';
+  const latest = ctx.approvalsRepo.getLatestForUser(intent.user_id);
+  const movedOn = !IN_FLIGHT.has(state) || latest?.id !== intent.approval_id;
+  if (movedOn) {
+    ctx.log.warn(
+      { userId: intent.user_id, idempotency_key: intent.idempotency_key, state, latestApproval: latest?.id },
+      'recovery: user moved on since the crash, not retrying the old hold',
+    );
+  }
+  return movedOn;
+}
+
 function proposalFor(ctx: RecoveryContext, intent: Intent): Proposal | undefined {
   const approval = ctx.approvalsRepo.get(intent.user_id, intent.approval_id);
   if (approval === undefined) return undefined;
@@ -127,6 +140,13 @@ async function resolveBook(ctx: RecoveryContext, intent: Intent): Promise<Resolu
   if (status.status === 'booked') {
     if (status.booking === null) return markUnknown(ctx, intent, undefined, 'booked status without a booking');
     return booked(ctx, intent, status.booking);
+  }
+
+  // The retry re-asserts an approval given before the crash. If the user has
+  // since moved on (task no longer in flight, or a newer approval exists) that
+  // approval no longer reflects what they want: never book it behind their back.
+  if (hasMovedOn(ctx, intent)) {
+    return fail(ctx, intent, { kind: 'failed', code: 'superseded', message: 'not retried: the user moved on after the restart' });
   }
 
   const holdId = proposalFor(ctx, intent)?.hold_id ?? null;
