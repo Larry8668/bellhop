@@ -4,8 +4,11 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 
 ## Now
 
-- [ ] Sign off plan v2 (`docs/bellhopper-plan.md`)
+- [x] Sign off plan v2 (`docs/bellhopper-plan.md`)
+- [x] Dev setup: subagents, rules, husky, commitlint, CI (PR #1)
+- [ ] Verify custom subagents + model pins are honored from the IDE Task tool (fresh turn)
 - [ ] Confirm deadline → decide how firmly phases 7–9 stay in scope
+- [ ] Branch protection on `main`: needs GitHub Pro or public repo; revisit when either changes
 
 ## Phase 0 — Scaffold
 
