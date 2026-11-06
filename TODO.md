@@ -50,20 +50,27 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 - [x] `/api/me`, `/api/keys` (session-only), `/api/bookings`, CORS for the web origin, `seed:demo`
 - [x] `web/`: Vite 8 + React 19 + Tailwind 4; Login, Chat (ApprovalCard, TracePanel), Profile (facts, API keys), Bookings; `httpApi` + `mockApi`
 - [x] `/mcp` stateless Streamable HTTP via `@hono/mcp`; tools `search_providers`, `get_provider` (fenced reviews), `list_bookings`, `whoami`
-- [ ] MCP `propose_*` + elicitation approval + UI-link fallback (after Phase 2)
+- [x] MCP `propose_*` + elicitation approval + UI-link fallback (Phase 2 wave 3B)
+- [x] `/api/proposals` (+ approve/decline), `/api/task`, web Proposals page with hash-carrying Confirm (Phase 2 wave 3C/3D)
 - [ ] Web chat/events/facts endpoints (Phases 3–4); the UI shows "not available yet" until then
+- [ ] Verify elicitation end-to-end from Cursor's MCP client (does it surface the confirm form? else the UI-link fallback is what users see)
 
-## Phase 2 — Core engine
+## Phase 2 — Core engine (PRs #22–#30 into `feat/phase-2-core`)
 
-- [ ] Schema + migrations (task_state, proposals, approvals, intents, bookings, events)
-- [ ] State machine with persisted transitions
-- [ ] Proposal hashing; approval create/consume (CAS)
-- [ ] Intents written before side effects; idempotency key from approval id
-- [ ] Executors: book (timeout → status check), cancel (503 retry), reschedule (conflict → alternatives)
-- [ ] Startup recovery of pending/unknown intents
-- [ ] Per-user promise queue
-- [ ] EVALS reporter
-- [ ] Scenarios 6, 9–16, H1–H10
+- [x] Schema + migrations (`0003_core.sql`: conversations, messages, task_state, proposals, approvals, intents, bookings, events)
+- [x] State machine with persisted transitions (+ `GATHERING → PROPOSED` for cancel/reschedule)
+- [x] Proposal hashing over the hold price; approval create/consume (CAS)
+- [x] Intents written before side effects; idempotency key `<action>_<approval_id>`
+- [x] Executors: book (re-hold + hash recheck, timeout → status check → bounded same-key retry → unconfirmed), cancel (503 retry), reschedule (conflict → alternatives)
+- [x] Startup recovery of pending/unknown intents (runs in `index.ts` before listen)
+- [x] Per-user promise queue (one instance shared by API and MCP)
+- [x] EVALS reporter (`task.meta.expected/actual`), `createCoreEngine` facade, `x-request-id` server → provider
+- [x] Scenarios 6, 9–11, 13–16, H1–H10 (22 rows in `EVALS.md`)
+- [ ] Gate review panel on the Phase 2 → `main` PR
+- [ ] Provider: admin knob for hold-price drift direction (H4/H5 currently pinned by RNG seed)
+- [ ] Provider: expose `idempotency_key` per booking in `/__admin/state` so invariant "one booking per key" can be asserted exactly
+- [ ] MCP session trace: one `mcp_<requestId>` file per session; switch to per-turn run ids in Phase 3
+- [ ] Cleanup chore: remove the Phase 1 demo booking `bk_1` and the smoke booking `bk_2` from the live DBs
 
 ## Phase 3 — Harness
 
