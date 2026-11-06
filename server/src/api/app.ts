@@ -1,12 +1,17 @@
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import type { ClientErrorStatusCode } from 'hono/utils/http-status';
 import { z, ZodError } from 'zod';
 import { APIError } from 'better-auth';
 import type { Logger } from '@bellhop/shared/logger';
 import { childLogger } from '@bellhop/shared/logger';
 import type { Auth } from '../auth/auth.js';
+import type { ProviderClient } from '../provider-client/client.js';
+import { ProviderError } from '../provider-client/errors.js';
 import type { AppVariables } from './middleware/require-user.js';
 import { requireUser } from './middleware/require-user.js';
+import { sortWebBookings } from './bookings.js';
+import { providerErrorStatus } from './provider-error.js';
 
 const createApiKeyBodySchema = z.object({
   name: z.string().min(1),
@@ -15,17 +20,33 @@ const createApiKeyBodySchema = z.object({
 interface CreateApiAppDeps {
   auth: Auth;
   logger: Logger;
+  providerClient: ProviderClient;
+  webOrigin: string;
 }
 
 /**
  * Builds the Hono app: Better Auth's own routes under `/api/auth/*`, plus
- * our minimal API (`/api/me`, `/api/keys`). All error paths funnel through
- * `onError` so every response uses the same `{ error: { code, message } }`
- * envelope (plan §14).
+ * our minimal API (`/api/me`, `/api/keys`, `/api/bookings`). All error paths
+ * funnel through `onError` so every response uses the same
+ * `{ error: { code, message } }` envelope (plan §14).
  */
-export function createApiApp({ auth, logger }: CreateApiAppDeps): Hono<{ Variables: AppVariables }> {
+export function createApiApp({
+  auth,
+  logger,
+  providerClient,
+  webOrigin,
+}: CreateApiAppDeps): Hono<{ Variables: AppVariables }> {
   const app = new Hono<{ Variables: AppVariables }>();
   const httpLog = childLogger(logger, 'http');
+
+  app.use(
+    '/api/*',
+    cors({
+      origin: webOrigin,
+      credentials: true,
+      allowHeaders: ['content-type', 'authorization', 'x-api-key'],
+    }),
+  );
 
   app.use('*', async (c, next) => {
     const startedAt = performance.now();
@@ -80,6 +101,8 @@ export function createApiApp({ auth, logger }: CreateApiAppDeps): Hono<{ Variabl
       keys: result.apiKeys.map((apiKey) => ({
         id: apiKey.id,
         name: apiKey.name,
+        start: apiKey.start ?? undefined,
+        prefix: apiKey.prefix ?? undefined,
         createdAt: apiKey.createdAt,
         enabled: apiKey.enabled,
       })),
@@ -99,7 +122,26 @@ export function createApiApp({ auth, logger }: CreateApiAppDeps): Hono<{ Variabl
     return c.json({ success: true });
   });
 
+  // `user_id` always comes from the resolved principal, never a body/query
+  // param (coding-standards.mdc invariant 2) — the route reads nothing else.
+  app.get('/api/bookings', requireUser(auth), async (c) => {
+    const principal = c.get('principal');
+    const result = await providerClient.list_bookings(principal.userId, {
+      user_id: principal.userId,
+    });
+    return c.json(sortWebBookings(result.bookings));
+  });
+
   app.onError((err, c) => {
+    if (err instanceof ProviderError) {
+      const status = providerErrorStatus(err.code);
+      if (status >= 500) {
+        logger.error({ err, tool: err.tool, code: err.code }, 'provider call failed');
+      } else {
+        logger.warn({ tool: err.tool, code: err.code }, 'provider call rejected');
+      }
+      return c.json({ error: { code: err.code, message: err.message, details: err.details } }, status);
+    }
     if (err instanceof ZodError) {
       return c.json(
         { error: { code: 'bad_request', message: 'invalid request body', details: err.issues } },

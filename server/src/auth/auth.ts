@@ -10,6 +10,8 @@ export interface CreateAuthDeps {
   secret: string;
   baseUrl: string;
   logger: Logger;
+  /** Origins Better Auth accepts for CORS/CSRF checks. Defaults to the web dev origin. */
+  trustedOrigins?: string[];
 }
 
 type AuthLogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -40,7 +42,7 @@ interface AuthOptions {
   };
 }
 
-function buildOptions({ db, secret, baseUrl, logger }: CreateAuthDeps): AuthOptions {
+function buildOptions({ db, secret, baseUrl, logger, trustedOrigins }: CreateAuthDeps): AuthOptions {
   const authLog = childLogger(logger, 'better-auth');
 
   return {
@@ -48,7 +50,7 @@ function buildOptions({ db, secret, baseUrl, logger }: CreateAuthDeps): AuthOpti
     secret,
     baseURL: baseUrl,
     basePath: '/api/auth',
-    trustedOrigins: ['http://localhost:5173'],
+    trustedOrigins: trustedOrigins ?? ['http://localhost:5173'],
     emailAndPassword: {
       enabled: true,
     },

@@ -11,5 +11,5 @@ export const endpoints = {
   facts: '/api/facts',
   fact: (id: string) => `/api/facts/${id}`,
   bookings: '/api/bookings',
-  apiKeys: '/api/api-keys',
+  apiKeys: '/api/keys',
 } as const;

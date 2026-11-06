@@ -5,6 +5,14 @@ import { openDatabase } from '../../src/db/open.js';
 import { createAuth, type Auth } from '../../src/auth/auth.js';
 import { migrateAuth } from '../../src/auth/migrate.js';
 import { createApiApp } from '../../src/api/app.js';
+import type { ProviderClient } from '../../src/provider-client/client.js';
+
+export const WEB_ORIGIN = 'http://localhost:5173';
+
+/** A `list_bookings`-only stub; routes that don't touch bookings never call it. */
+const noopProviderClient: Partial<ProviderClient> = {
+  list_bookings: () => Promise.resolve({ bookings: [] }),
+};
 
 export interface TestAuthSetup {
   auth: Auth;
@@ -26,9 +34,14 @@ export interface TestAppSetup extends TestAuthSetup {
 }
 
 /** In-memory app + auth pair, ready to receive `app.request(...)` calls. */
-export async function setupTestApp(): Promise<TestAppSetup> {
+export async function setupTestApp(deps: { providerClient?: Partial<ProviderClient> } = {}): Promise<TestAppSetup> {
   const setup = await setupTestAuth();
-  const app = createApiApp({ auth: setup.auth, logger: setup.logger });
+  const app = createApiApp({
+    auth: setup.auth,
+    logger: setup.logger,
+    providerClient: (deps.providerClient ?? noopProviderClient) as ProviderClient,
+    webOrigin: WEB_ORIGIN,
+  });
   return { ...setup, app };
 }
 
