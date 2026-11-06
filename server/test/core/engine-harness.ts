@@ -41,11 +41,16 @@ export interface EngineHarness {
 export const DEFAULT_LIMITS: ExecutionLimits = { statusChecks: 3, retriesPerTool: 2 };
 
 /**
- * Client timeout (40 ms) is below the provider's simulated book delay
- * (120 ms) so `TIMEOUT_*` scenarios surface as client-side timeouts.
+ * Client timeout is well below the provider's simulated delay so `TIMEOUT_*`
+ * scenarios surface as client-side timeouts, but generous enough that a
+ * normal call never trips it under a parallel full-suite run (a 40 ms value
+ * turned a 503 into a "timeout" when the machine was loaded).
  */
+const CLIENT_TIMEOUT_MS = 300;
+const PROVIDER_TIMEOUT_DELAY_MS = 800;
+
 export async function startEngineHarness(opts: { limits?: ExecutionLimits } = {}): Promise<EngineHarness> {
-  const tp = await startTestProvider({ seed: 42, timeoutDelayMs: 120 });
+  const tp = await startTestProvider({ seed: 42, timeoutDelayMs: PROVIDER_TIMEOUT_DELAY_MS });
   const logger = createLogger({ name: 'engine-test', level: 'silent' });
   const db = createTestDb();
   const trace = createFakeTraceWriter();
@@ -63,7 +68,7 @@ export async function startEngineHarness(opts: { limits?: ExecutionLimits } = {}
     return fetch(input, init);
   };
 
-  const providerClient = createProviderClient({ baseUrl: tp.url, timeoutMs: 40, logger, fetch: spyFetch });
+  const providerClient = createProviderClient({ baseUrl: tp.url, timeoutMs: CLIENT_TIMEOUT_MS, logger, fetch: spyFetch });
   const stateMachine = createStateMachine({ db, clock, trace, logger });
   const intents = createIntentService({ db, clock, trace, logger });
   const proposals = createProposalService({ db, clock, providerClient, stateMachine, trace, logger });
