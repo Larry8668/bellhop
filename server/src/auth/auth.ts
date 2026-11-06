@@ -59,7 +59,10 @@ export function buildOptions({ db, secret, baseUrl, logger, trustedOrigins }: Cr
     emailAndPassword: {
       enabled: true,
     },
-    plugins: [apiKey()],
+    // The plugin's default per-key rate limit is 10 verifications per 24 h,
+    // and every MCP request verifies the key (BUGS.md #2). Keys are the user's
+    // own credentials, not a public quota; limits belong at the HTTP edge.
+    plugins: [apiKey({ rateLimit: { enabled: false } })],
     // Dev-mode same-site cookies: UI (5173) and server are different ports
     // but the same "site" (http://localhost), so `lax` + non-secure works
     // without HTTPS. Set explicitly rather than relying on the library
