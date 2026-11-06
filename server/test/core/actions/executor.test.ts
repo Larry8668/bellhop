@@ -338,6 +338,9 @@ describe('executor', () => {
       expect(repos().intents.get(key)).toBeUndefined();
       expect(h.calls).toHaveLength(0);
       expect(h.state()).toBe('APPROVED');
+      // The rolled-back claim must leave no trace record claiming it happened.
+      expect(h.trace.events.filter((e) => e.type === 'approval' && e.outcome === 'consumed')).toHaveLength(0);
+      expect(h.trace.events.filter((e) => e.type === 'intent' && e.idempotency_key === key)).toHaveLength(0);
 
       h.scenario('BOOK_SUCCESS');
       const second = await h.executor.execute(TEST_USER, approval.id);

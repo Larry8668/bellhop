@@ -1,5 +1,5 @@
 import type { TraceEventInput } from '../../src/trace/types.js';
-import type { TraceWriter } from '../../src/trace/writer.js';
+import { createEmitter, type TraceWriter } from '../../src/trace/writer.js';
 
 export interface FakeTraceWriter extends TraceWriter {
   events: TraceEventInput[];
@@ -11,8 +11,8 @@ export function createFakeTraceWriter(): FakeTraceWriter {
   return {
     path: ':memory:',
     events,
-    emit(event: TraceEventInput): void {
+    ...createEmitter((event) => {
       events.push(event);
-    },
+    }),
   };
 }
