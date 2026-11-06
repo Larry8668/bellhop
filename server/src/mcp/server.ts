@@ -10,12 +10,21 @@ import type { Principal } from '../auth/principal.js';
 import type { ProviderClient } from '../provider-client/index.js';
 import { ProviderError } from '../provider-client/index.js';
 import { fenceReviews } from '../core/untrusted.js';
+import type { CoreEngine } from '../core/engine.js';
+import type { UserQueue } from '../core/queue/user-queue.js';
+import { registerProposeTools } from './propose-tools.js';
 
 export interface CreateMcpServerDeps {
   providerClient: ProviderClient;
   principal: Principal;
   logger: Logger;
   requestId: string;
+  /** Per-connection core engine (own trace writer, built once in `app.ts` when the session starts); only the propose/approval tools below use it. */
+  engine: CoreEngine;
+  /** Serializes `propose_*` + its approval step with every other turn/event for this user (plan §8). */
+  queue: UserQueue;
+  /** Fallback link shown when the client has no elicitation capability (plan §7). */
+  webOrigin: string;
 }
 
 /**
@@ -46,13 +55,23 @@ function summarizeProviders(providers: ProviderSummary[]): string {
  * the model or a tool argument could supply (coding-standards.mdc invariant
  * 2).
  *
- * Only read-only tools are registered here. `propose_booking` /
- * `propose_cancel` / `propose_reschedule` — and the elicitation-based
- * approval flow around them — arrive with the Phase 2 approval engine (plan
- * §15); the LLM must never be able to call `book`/`cancel`/`reschedule`
- * directly (coding-standards.mdc invariant 1).
+ * Read-only tools are registered here directly; `propose_booking` /
+ * `propose_cancel` / `propose_reschedule` / `list_proposals` /
+ * `decline_proposal` — and the elicitation-based approval step around the
+ * `propose_*` calls — are registered by `registerProposeTools` (plan §7).
+ * There is deliberately no `approve`/`confirm` tool: the LLM must never be
+ * able to call `book`/`cancel`/`reschedule` directly, or create an approval
+ * itself (coding-standards.mdc invariant 1).
  */
-export function createMcpServer({ providerClient, principal, logger, requestId }: CreateMcpServerDeps): McpServer {
+export function createMcpServer({
+  providerClient,
+  principal,
+  logger,
+  requestId,
+  engine,
+  queue,
+  webOrigin,
+}: CreateMcpServerDeps): McpServer {
   const log = childLogger(logger, 'mcp-server', { userId: principal.userId });
   const server = new McpServer({ name: 'bellhop', version: '0.1.0' });
 
@@ -145,6 +164,8 @@ export function createMcpServer({ providerClient, principal, logger, requestId }
       };
     },
   );
+
+  registerProposeTools({ server, engine, principal, queue, webOrigin, logger });
 
   return server;
 }

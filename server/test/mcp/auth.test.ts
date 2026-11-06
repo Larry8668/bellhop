@@ -52,6 +52,41 @@ describe('MCP route: authentication', () => {
     expect(res.status).toBe(200);
     await res.body?.cancel();
   });
+
+  it('rejects a request carrying another principal\'s Mcp-Session-Id, even with otherwise-valid credentials (invariant 2 — a session id is not an identity)', async () => {
+    ctx = await setupMcpTest({});
+    const userA = await signUpAndSignIn(ctx.apiApp);
+    const userB = await signUpAndSignIn(ctx.apiApp);
+
+    const initRes = await fetch(`${ctx.server.baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        cookie: userA.cookie,
+      },
+      body: JSON.stringify(initializeBody),
+    });
+    expect(initRes.status).toBe(200);
+    const sessionId = initRes.headers.get('mcp-session-id');
+    expect(sessionId).toBeTruthy();
+    await initRes.body?.cancel();
+
+    const hijackRes = await fetch(`${ctx.server.baseUrl}/mcp`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+        cookie: userB.cookie,
+        'mcp-session-id': sessionId ?? '',
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
+    });
+
+    expect(hijackRes.status).toBe(401);
+    const body = (await hijackRes.json()) as { error: { code: string } };
+    expect(body.error.code).toBe('unauthorized');
+  });
 });
 
 describe('MCP route: stateless-mode method rules', () => {
