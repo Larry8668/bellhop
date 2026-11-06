@@ -8,8 +8,9 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 - [x] Dev setup: subagents, rules, husky, commitlint, CI (PR #1)
 - [x] CLI delegation scripts + review panel runner + cli.json deny rules (PR #3)
 - [ ] Confirm deadline → decide how firmly phases 7–9 stay in scope
-- [ ] Measure review-panel wall time on a real code PR; if Grok reviewers stay slow, swap quality → claude-opus-5-5-medium
-- [ ] `.delegate/` transcripts are never cleaned up; add a prune step or document (review-security MINOR)
+- [ ] `.delegate/` transcripts are never cleaned up; add a prune step (review-security MINOR)
+- [ ] Stub-`agent` test for delegate.sh / review-panel.sh failure paths (reviewers' MAJOR; low priority)
+- [ ] First gate review at end of Phase 2 — record timings per reviewer model
 - [ ] Branch protection on `main`: needs GitHub Pro or public repo; revisit when either changes
 
 ## Phase 0 — Scaffold

@@ -4,6 +4,8 @@
 
 ## Review panel
 
+<!-- "panel: skipped (not a gate)" or fill the table for gate PRs -->
+
 | Reviewer | Verdict | Blockers fixed |
 |---|---|---|
 | review-quality | | |
