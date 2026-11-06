@@ -4,7 +4,7 @@
 
 Chat-based agent that arranges home-service errands (plumber, electrician, AC servicing…). It clarifies missing details, compares providers, asks for explicit approval before anything consequential, and recovers safely when tools fail. Everything runs locally against a mock provider service.
 
-Status: **Phase 1 (provider service) done**, plus the auth/API/web/MCP shells pulled forward as test surfaces. The agent itself (approvals, harness, memory) lands in Phases 2–5. See `TODO.md` for what's next and `LOGS.md` for decisions.
+The repo is an npm workspace: mock provider, Bellhop server, and React UI. `npm test` is offline. Chat with the model needs Ollama on the host. See `TODO.md` for what's next and `LOGS.md` for decisions.
 
 ## Prerequisites
 
@@ -15,39 +15,75 @@ Status: **Phase 1 (provider service) done**, plus the auth/API/web/MCP shells pu
 ## Layout
 
 ```
-shared/     logger, clock, rng, and the tool contracts (zod) shared by provider and server
-provider/   mock provider service: the 8 tool contracts, seeded randomness, admin endpoints
-server/     Bellhop backend: auth, API, MCP, provider client; harness + core land in Phases 2–3
-web/        React + Vite UI (login, chat, profile, bookings)
-docs/       plan and transcripts
-traces/     raw JSONL traces (one committed timeout-after-success run)
+shared/              logger, clock, rng, migrate, tool contracts (zod)
+provider/            mock provider HTTP service, its own SQLite, /__admin routes
+server/              API, Better Auth, harness, core, MCP
+web/                 React + Vite UI (login, chat, profile, bookings, proposals)
+docker/              nginx config for the compose `web` service
+docs/                plan and transcripts
+traces/              raw JSONL traces
+docker-compose.yml   provider + server + web; Ollama stays on the host
 ```
 
 ## Install
 
 ```bash
-npm install                   # also builds shared/ and provider/ (prepare hook)
+npm install                   # prepare hook: husky, then build shared, provider, and web
 ```
 
-## Run
+## Migrate and seed
 
-Three processes, three terminals (Docker Compose arrives in Phase 8):
+`npm run start` on provider and server applies pending SQL migrations before serving. The commands below are for a one-shot migrate or a fresh demo login. Use the same `DB_PATH` and `BETTER_AUTH_SECRET` for seed and server.
+
+```bash
+npm run db:migrate -w provider
+npm run db:migrate -w server
+npm run seed:demo -w server
+# demo@bellhop.local / demo-pass-123
+```
+
+`seed:demo` is idempotent. `npm run db:seed -w server` seeds the same account. Provider seed data is applied on first boot (and by `npm run db:seed -w provider`); it is not the demo login.
+
+## Run (dev)
+
+Three processes. Ollama must already be running if you want live model replies (`ollama pull qwen3.5:9b`, or `MODEL=qwen3:8b` after `ollama pull qwen3:8b`).
 
 ```bash
 # 1. mock provider on :4010, admin routes on
 PROVIDER_ADMIN=1 npm run start -w provider
 
-# 2. backend on :4000 (creates ./server/data/bellhop.db, migrations auto-applied)
+# 2. backend on :4000 (default DB ./server/data/bellhop.db when cwd is server/)
 BETTER_AUTH_SECRET=$(openssl rand -base64 32) npm run start -w server
-npm run seed:demo -w server   # once: demo@bellhop.local / demo-pass-123 (same BETTER_AUTH_SECRET + DB_PATH)
+npm run seed:demo -w server   # once; same BETTER_AUTH_SECRET and DB_PATH as the server
 
-# 3. web on :5173 (proxies /api to :4000)
+# 3. web on :5173 (Vite proxies /api to :4000)
 npm run dev -w web
 ```
 
 Sign in at http://localhost:5173 with the demo account. Profile → "Create key" gives an API key for MCP.
 
-Env (all optional; defaults in `server/src/config.ts`, `provider/src/config.ts`): `MODEL`, `OLLAMA_BASE_URL`, `PROVIDER_URL`, `PROVIDER_TIMEOUT_MS`, `DB_PATH`, `SERVER_PORT`, `WEB_ORIGIN`, `BETTER_AUTH_SECRET`; provider `PORT`, `SEED`, `PROVIDER_ADMIN`, `TIMEOUT_DELAY_MS`, `HOLD_PRICE_DRIFT_PROB`.
+Env (all optional; defaults in `server/src/config.ts` and `provider/src/config.ts`): `MODEL` (default `qwen3.5:9b`), `MODEL_FALLBACK` (`qwen3:8b`), `OLLAMA_BASE_URL` (`http://localhost:11434`), `PROVIDER_URL` (`http://localhost:4010`), `PROVIDER_TIMEOUT_MS`, `DB_PATH`, `TRACES_DIR`, `SERVER_PORT` (`4000`), `WEB_ORIGIN` (`http://localhost:5173`), `BETTER_AUTH_SECRET` (default `dev-secret-change-me`), `BETTER_AUTH_URL` (`http://localhost:4000`). Provider: `PORT` (`4010`), `SEED`, `PROVIDER_ADMIN`, `TIMEOUT_DELAY_MS`, `HOLD_PRICE_DRIFT_PROB`, `DB_PATH`.
+
+## Run with Docker Compose
+
+Ollama is not a container. Start it on the host and pull a model first. Compose reaches it at `http://host.docker.internal:11434` (`extra_hosts: host.docker.internal:host-gateway`).
+
+```bash
+ollama pull qwen3.5:9b
+docker compose up --build
+```
+
+| Service | Published port | What you open |
+|---|---|---|
+| `web` | 8080 → nginx | http://localhost:8080 (static Vite build; `/api` and `/mcp` proxied to `server`) |
+| `server` | 4000 | http://localhost:4000/api/health and http://localhost:4000/mcp |
+| `provider` | 4010 | http://localhost:4010/health ; `/__admin` is on (`PROVIDER_ADMIN=1`) |
+
+Demo login is the same: `demo@bellhop.local` / `demo-pass-123`. On startup `server` runs `npm run db:migrate -w server`, then `npm run seed:demo -w server`, then `npm run start -w server`.
+
+SQLite files and traces are named volumes (`provider-data`, `server-data`, `traces`), not the files in your checkout. `BETTER_AUTH_SECRET` defaults to `dev-secret-change-me` via `${BETTER_AUTH_SECRET:-dev-secret-change-me}`. `BETTER_AUTH_URL` and `WEB_ORIGIN` default to `http://localhost:8080` so the proxied UI and Better Auth share one origin. Override them in the environment if you publish `web` on another host port.
+
+`MODEL` still defaults to `qwen3.5:9b`. Set `MODEL=qwen3:8b` on the `server` service if that is the model you pulled.
 
 ## Database
 
@@ -86,12 +122,21 @@ A file with no `-- migrate:down` section applies fine but `db:rollback`/`db:rese
 
 ### MCP
 
-Endpoint: `http://localhost:4000/mcp` (Streamable HTTP, stateless). Auth: `Authorization: Bearer <api key>` or `x-api-key`. Tools today: `search_providers`, `get_provider` (reviews returned fenced as untrusted text), `list_bookings`, `whoami`. `propose_*` + approval elicitation arrive with Phase 2/7.
+Endpoint: `http://localhost:4000/mcp` (Streamable HTTP). With Compose, the same route is also proxied at `http://localhost:8080/mcp`. Create a key on the Profile page. The server accepts `Authorization: Bearer <api key>` (also `x-api-key`). `user_id` comes from that key, never from tool arguments.
+
+Tools: `search_providers`, `get_provider` (reviews fenced as untrusted text), `list_bookings`, `whoami`, `propose_booking`, `propose_cancel`, `propose_reschedule`, `list_proposals`, `decline_proposal`. Booking, cancel, and reschedule still require approval (elicitation when the client supports it, otherwise confirm in the UI).
 
 Cursor (`.cursor/mcp.json`) or Claude Code:
 
 ```json
-{ "mcpServers": { "bellhop": { "url": "http://localhost:4000/mcp", "headers": { "Authorization": "Bearer <api key>" } } } }
+{
+  "mcpServers": {
+    "bellhop": {
+      "url": "http://localhost:4000/mcp",
+      "headers": { "Authorization": "Bearer <api key>" }
+    }
+  }
+}
 ```
 
 ### Checks
@@ -110,7 +155,7 @@ npm run smoke:ollama -w server
 
 ## Forcing scenarios
 
-The provider exposes `/__admin` routes when `PROVIDER_ADMIN=1`:
+The provider exposes `/__admin` routes when `PROVIDER_ADMIN=1` (set that way in Compose, and in the dev command above):
 
 ```bash
 # queue forced outcomes (FIFO, consumed by the next matching tool call)
