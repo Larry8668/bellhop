@@ -65,5 +65,10 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 - Delegate timings this phase: composer-2.5 93 s (contracts), 166 s (client), 477 s (web); claude-sonnet-5-thinking-high 1084 s (engine), 1236 s (auth), 932 s (http), 840 s (root), 999 s (mcp).
 - Live check: provider + server + web + `seed:demo`; sign-in, API key, `/api/me` via cookie and key, booking visible in `/api/bookings`, MCP `tools/list` + `search_providers` + `list_bookings` through the real provider with a forged `user_id` argument ignored; 401 without auth.
 
+**Follow-ups (PRs #17, #18)**
+- BUGS #1: `base: './'` in `vite.config.ts` disables `server.proxy` under Vite 8 dev, so the UI got `index.html` for `/api/*`. Relative base is now build-only; config exported as a function with a regression test.
+- Migrations: user asked for alembic-style DB versioning. Chose plain SQL files (`NNNN_name.sql`, dbmate-compatible up/down sections) with a ~150-line runner in `@bellhop/shared/migrate` over an external tool: no Python/binary, works on `:memory:` in tests, and the format can be handed to dbmate later unchanged. Better Auth's tables are compiled into `server/db/migrations/0001_auth.sql` by `better-auth/db/migration` (`getMigrations().compileMigrations()`), guarded by a drift test. Per workspace: `db:migrate|rollback|status|seed|reset`; boot still auto-applies. Phase 2 core tables go in as `0002_core.sql`.
+- `.cursor/mcp.json` is gitignored (holds a personal API key).
+
 **Next**
 - Phase 2: core engine (schema, state machine, proposals/approvals with hash + CAS, intents, executors, recovery, per-user queue, EVALS reporter). Gate review at the end.
