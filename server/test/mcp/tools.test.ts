@@ -17,19 +17,30 @@ afterEach(async () => {
 });
 
 describe('MCP server: tool listing', () => {
-  it('exposes exactly the four read-only tools', async () => {
+  it('exposes the read-only tools plus the propose/approval tools — no approve/confirm tool', async () => {
     ctx = await setupMcpTest({});
     const { apiKey } = await createApiKeyUser(ctx.apiApp);
     const { client } = await connectMcpClient(ctx.server.baseUrl, { authorization: `Bearer ${apiKey}` });
 
     const { tools } = await client.listTools();
+    const names = tools.map((t) => t.name).sort();
 
-    expect(tools.map((t) => t.name).sort()).toEqual([
+    expect(names).toEqual([
+      'decline_proposal',
       'get_provider',
       'list_bookings',
+      'list_proposals',
+      'propose_booking',
+      'propose_cancel',
+      'propose_reschedule',
       'search_providers',
       'whoami',
     ]);
+    // Invariant 1: no tool exists that could create an approval from MCP directly.
+    expect(names).not.toContain('approve');
+    expect(names).not.toContain('confirm');
+    expect(names).not.toContain('approve_proposal');
+    expect(names).not.toContain('confirm_proposal');
   });
 });
 
