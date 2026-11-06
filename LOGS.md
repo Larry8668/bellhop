@@ -103,3 +103,17 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 **Next**
 - Merge #31 into `main`, tag `gate-phase-2`.
 - Phase 3: harness (ToolLoopAgent, tools incl. `propose_*` validation against `task_state`, context layer, limits, per-turn trace), scenarios 1–5, 23–28.
+
+## 2026-11-07 — Phase 5 proactive
+
+**Done**
+- Scenario 22: the backend polls upcoming confirmed bookings, records one `provider_cancelled` event when the provider has cancelled, and proposes a replacement that still needs a fresh approval.
+
+**Decided**
+- Proactive detection is polling, not webhooks (plan §19). Simpler: no inbound endpoint, and the provider admin cancel is already the way tests force scenario 22.
+- Status is read with `list_bookings` (one call per user, bounded). `get_booking_status` keys on hold id or idempotency key, which the app booking row does not store.
+- Replacement search uses the cancelled provider's area (`get_provider`) and the booking's service, over the next 14 days (the seed's slot horizon). The cancelling provider is excluded. Prefs: `not_before` (`HH:MM` IST) and `max_price` (whole rupees); unknown keys ignored. Best = lowest price, then earliest slot, then highest rating. `proposeBooking` holds a slot and opens a pending card — nothing is booked until the user approves. A slot that is no longer in the future is marked processed with no message.
+- The UI dev button that forces a cancel stays with the Phase 6 screens. Tests cancel through the provider admin client.
+
+**Next**
+- Wire `notify` to the SSE stream when the API layer lands (Phase 6). The assistant message is already the record.

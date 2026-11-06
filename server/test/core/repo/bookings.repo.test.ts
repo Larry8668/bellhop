@@ -42,4 +42,25 @@ describe('bookingsRepo', () => {
 
     expect(repo.list(TEST_USER).map((b) => b.booking_id)).toEqual([earlier.booking_id, later.booking_id]);
   });
+
+  it('listByStatus returns that status for every user, ordered by slot start', () => {
+    const repo = createBookingsRepo(createTestDb());
+    const confirmedLater = makeAppBooking({
+      slot: { start: '2026-03-01T00:00:00Z', end: '2026-03-01T01:00:00Z' },
+    });
+    const confirmedEarlier = makeAppBooking({
+      user_id: OTHER_USER,
+      slot: { start: '2026-02-01T00:00:00Z', end: '2026-02-01T01:00:00Z' },
+    });
+    const cancelled = makeAppBooking({ status: 'cancelled' });
+    repo.upsert(confirmedLater);
+    repo.upsert(confirmedEarlier);
+    repo.upsert(cancelled);
+
+    expect(repo.listByStatus('confirmed').map((b) => b.booking_id)).toEqual([
+      confirmedEarlier.booking_id,
+      confirmedLater.booking_id,
+    ]);
+    expect(repo.listByStatus('cancelled').map((b) => b.booking_id)).toEqual([cancelled.booking_id]);
+  });
 });

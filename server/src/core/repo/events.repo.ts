@@ -35,7 +35,10 @@ export interface EventsRepo {
   insert(event: NewEvent): AppEvent;
   /** Unprocessed events, optionally scoped to one user (plan §12's processor runs per-user). */
   listUnprocessed(userId?: string): AppEvent[];
-  markProcessed(id: number): void;
+  /** True when this booking already has an event of `type` (processed or not). */
+  hasForBooking(type: string, bookingId: string): boolean;
+  /** Compare-and-set `processed` 0 → 1. `true` only for the caller that won. */
+  markProcessed(id: number): boolean;
 }
 
 export function createEventsRepo(db: Database.Database): EventsRepo {
@@ -48,7 +51,10 @@ export function createEventsRepo(db: Database.Database): EventsRepo {
   const listUnprocessedForUserStmt = db.prepare(
     `SELECT * FROM events WHERE processed = 0 AND user_id = ? ORDER BY created_at ASC`,
   );
-  const markProcessedStmt = db.prepare('UPDATE events SET processed = 1 WHERE id = ?');
+  const hasForBookingStmt = db.prepare(
+    'SELECT 1 AS present FROM events WHERE type = ? AND booking_id = ? LIMIT 1',
+  );
+  const markProcessedStmt = db.prepare('UPDATE events SET processed = 1 WHERE id = ? AND processed = 0');
 
   return {
     insert(event: NewEvent): AppEvent {
@@ -70,8 +76,12 @@ export function createEventsRepo(db: Database.Database): EventsRepo {
       return rows.map(toDomain);
     },
 
-    markProcessed(id: number): void {
-      markProcessedStmt.run(id);
+    hasForBooking(type: string, bookingId: string): boolean {
+      return hasForBookingStmt.get(type, bookingId) !== undefined;
+    },
+
+    markProcessed(id: number): boolean {
+      return markProcessedStmt.run(id).changes === 1;
     },
   };
 }
