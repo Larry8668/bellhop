@@ -31,6 +31,13 @@ The panel takes 1–8 minutes per run depending on model; it is **not** run on e
 - Command: `scripts/review-panel.sh "<what the gate delivers>" [base]`. Fix BLOCKERs; MAJORs fixed or deferred to `TODO.md` with a reason; MINORs optional. Re-run only the reviewer(s) that raised a blocker: `scripts/delegate.sh <review-role> <model> "<brief>" --readonly`.
 - Record each gate review in `LOGS.md` (verdicts, blockers fixed, deferred).
 
+## Stacked PRs per phase
+
+- Each phase has an integration branch `feat/phase-<n>-<name>` off `main`.
+- Parallel tasks run as delegates in isolated worktrees: `scripts/delegate.sh implementer <model> "<brief>" --worktree=p<n>-<task>`. Each gets its own branch off the phase branch. Keep tasks on disjoint paths; shared surfaces (root `package.json`, lockfile, `@bellhop/shared` API) are settled in the phase's first wave before anything depends on them.
+- The parent verifies each worktree (lint, typecheck, test), commits there, pushes, and opens a PR **into the phase branch**; merge with rebase. Remove the worktree after merge (`git worktree remove`).
+- When the phase exit criteria pass on the integration branch, one PR brings it into `main`. Gate phases run the review panel on that PR only.
+
 ## Git — PRs only
 
 - **Nothing reaches `main` except via a pull request.** Never commit, push, or merge locally into `main`. Branch per task: `feat/`, `fix/`, `docs/`, `chore/`, `test/`. Guards: the `pre-push` hook blocks pushes to `main`; `.cursor/cli.json` denies `git push/commit/merge` and `gh` to CLI delegates entirely (parent owns git). GitHub branch protection needs a paid plan for private repos; the rule holds regardless.
