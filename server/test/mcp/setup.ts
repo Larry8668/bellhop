@@ -3,7 +3,7 @@ import type { ToolName } from '@bellhop/shared/contracts';
 import { Hono } from 'hono';
 import { openDatabase } from '../../src/db/open.js';
 import { createAuth, type Auth } from '../../src/auth/auth.js';
-import { migrateAuth } from '../../src/auth/migrate.js';
+import { migrateDb } from '../../src/db/migrate.js';
 import { createApiApp } from '../../src/api/app.js';
 import { createProviderClient } from '../../src/provider-client/index.js';
 import { createMcpApp } from '../../src/mcp/index.js';
@@ -37,7 +37,7 @@ export async function setupMcpTest(
     baseUrl: 'http://localhost:3000',
     logger,
   });
-  await migrateAuth(auth);
+  migrateDb(db, logger);
 
   const stub = await startStubProvider(routes);
   const providerClient = createProviderClient({ baseUrl: stub.url, timeoutMs: 5000, logger });

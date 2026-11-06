@@ -21,7 +21,7 @@ interface ProviderRow {
 function seedFreshDb(seed: number) {
   const logger = createLogger({ name: 'test', level: 'silent' });
   const db = openProviderDb(':memory:', { logger });
-  applySchema(db);
+  applySchema(db, logger);
   const clock = createFakeClock(TEST_START_MS);
   const rng = createSeededRng(seed);
   seedProviders(db, { rng, clock, seed });

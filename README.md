@@ -37,7 +37,7 @@ Three processes, three terminals (Docker Compose arrives in Phase 8):
 # 1. mock provider on :4010, admin routes on
 PROVIDER_ADMIN=1 npm run start -w provider
 
-# 2. backend on :4000 (creates ./server/data/bellhop.db)
+# 2. backend on :4000 (creates ./server/data/bellhop.db, migrations auto-applied)
 BETTER_AUTH_SECRET=$(openssl rand -base64 32) npm run start -w server
 npm run seed:demo -w server   # once: demo@bellhop.local / demo-pass-123 (same BETTER_AUTH_SECRET + DB_PATH)
 
@@ -48,6 +48,40 @@ npm run dev -w web
 Sign in at http://localhost:5173 with the demo account. Profile → "Create key" gives an API key for MCP.
 
 Env (all optional; defaults in `server/src/config.ts`, `provider/src/config.ts`): `MODEL`, `OLLAMA_BASE_URL`, `PROVIDER_URL`, `PROVIDER_TIMEOUT_MS`, `DB_PATH`, `SERVER_PORT`, `WEB_ORIGIN`, `BETTER_AUTH_SECRET`; provider `PORT`, `SEED`, `PROVIDER_ADMIN`, `TIMEOUT_DELAY_MS`, `HOLD_PRICE_DRIFT_PROB`.
+
+## Database
+
+SQL-file migrations, versioned and applied in order, Node's equivalent of alembic/dbmate (`@bellhop/shared/migrate`). Provider and server each have their own SQLite file and their own migrations directory:
+
+- `provider/db/migrations/*.sql` — engine tables (providers, slots, holds, bookings, idempotency, events).
+- `server/db/migrations/*.sql` — `0001_auth.sql` is generated, not hand-written (see below); later files are app tables (conversations, task_state, proposals, …).
+
+Both workspaces expose the same five commands:
+
+```bash
+npm run db:migrate -w provider   # apply all pending migrations
+npm run db:rollback -w provider  # revert the most recent migration (or `tsx scripts/db.ts down <n>` for more)
+npm run db:status -w provider    # table of applied/pending migrations
+npm run db:seed -w provider      # seed data (providers, or the demo account on server) — skips if already seeded
+npm run db:reset -w provider     # revert everything reversible, re-migrate, reseed — a fresh db for testing
+# same five with `-w server`
+```
+
+**Boot auto-applies pending migrations** (`bootstrapProvider` / `server/src/index.ts` both run `up()` before serving traffic and log `migrations: N applied`), so `npm run start` never needs a manual migration step — `db:migrate` is for inspecting/scripting, or for `db:status`/`db:rollback` during development.
+
+**Adding a migration:** create `<dir>/NNNN_name.sql` with the next zero-padded 4-digit version (e.g. `0002_add_index.sql`), dbmate-style sections:
+
+```sql
+-- migrate:up
+CREATE INDEX idx_bookings_user ON bookings(user_id);
+
+-- migrate:down
+DROP INDEX idx_bookings_user;
+```
+
+A file with no `-- migrate:down` section applies fine but `db:rollback`/`db:reset` refuse to revert it — only do this for a change that's genuinely one-way.
+
+**Server auth tables are generated, not hand-written:** `npm run db:gen-auth -w server` builds the same options `createAuth` uses, asks Better Auth's own migration planner (`better-auth/db/migration`'s `getMigrations`) what it would create against a fresh db, and writes that into `0001_auth.sql`. Re-run it (and add a *new* migration on top — never hand-edit `0001_auth.sql`) after a Better Auth upgrade; `server/test/db/migrate.test.ts` fails loudly if the installed version would now plan something different.
 
 ### MCP
 

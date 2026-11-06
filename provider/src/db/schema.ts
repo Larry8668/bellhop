@@ -1,103 +1,29 @@
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import type Database from 'better-sqlite3';
-import { getMeta, setMeta } from './meta.js';
+import { createMigrator, type AppliedMigration } from '@bellhop/shared/migrate';
+import type { Logger } from '@bellhop/shared/logger';
 
-const SCHEMA_VERSION = 1;
+/**
+ * Migration SQL lives outside `src/` (`provider/db/migrations`) so this same
+ * relative path resolves correctly whether this module runs as
+ * `src/db/schema.ts` under tsx or as compiled `dist/db/schema.js` after
+ * `npm run build` — both sit exactly two directories below the package root.
+ */
+const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+export const PROVIDER_MIGRATIONS_DIR = path.join(PACKAGE_ROOT, 'db', 'migrations');
 
-/** Idempotent DDL — safe to call on every boot and in every test setup. */
-export function applySchema(db: Database.Database): void {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS meta (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS providers (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      service TEXT NOT NULL,
-      area TEXT NOT NULL,
-      price INTEGER NOT NULL,
-      rating REAL NOT NULL,
-      description TEXT NOT NULL,
-      years_active INTEGER NOT NULL,
-      attributes_json TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS reviews (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      provider_id TEXT NOT NULL REFERENCES providers(id),
-      author TEXT NOT NULL,
-      rating INTEGER NOT NULL,
-      text TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS slots (
-      provider_id TEXT NOT NULL REFERENCES providers(id),
-      start TEXT NOT NULL,
-      end TEXT NOT NULL,
-      state TEXT NOT NULL CHECK (state IN ('open', 'held', 'booked')),
-      PRIMARY KEY (provider_id, start)
-    );
-
-    CREATE TABLE IF NOT EXISTS holds (
-      hold_id TEXT PRIMARY KEY,
-      provider_id TEXT NOT NULL REFERENCES providers(id),
-      user_id TEXT NOT NULL,
-      slot_start TEXT NOT NULL,
-      slot_end TEXT NOT NULL,
-      price INTEGER NOT NULL,
-      search_price INTEGER NOT NULL,
-      created_at TEXT NOT NULL,
-      expires_at TEXT NOT NULL,
-      state TEXT NOT NULL CHECK (state IN ('active', 'consumed', 'void'))
-    );
-
-    CREATE TABLE IF NOT EXISTS bookings (
-      booking_id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      provider_id TEXT NOT NULL REFERENCES providers(id),
-      slot_start TEXT NOT NULL,
-      slot_end TEXT NOT NULL,
-      price INTEGER NOT NULL,
-      status TEXT NOT NULL CHECK (status IN ('confirmed', 'cancelled', 'rescheduled')),
-      hold_id TEXT,
-      idempotency_key TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS idempotency (
-      tool TEXT NOT NULL,
-      key TEXT NOT NULL,
-      fingerprint TEXT NOT NULL,
-      status INTEGER NOT NULL,
-      body_json TEXT NOT NULL,
-      PRIMARY KEY (tool, key)
-    );
-
-    CREATE TABLE IF NOT EXISTS counters (
-      name TEXT PRIMARY KEY,
-      value INTEGER NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      type TEXT NOT NULL,
-      booking_id TEXT NOT NULL,
-      user_id TEXT NOT NULL,
-      created_at TEXT NOT NULL,
-      consumed INTEGER NOT NULL DEFAULT 0
-    );
-  `);
-
-  if (getMeta(db, 'schema_version') === undefined) {
-    setMeta(db, 'schema_version', String(SCHEMA_VERSION));
-  }
+/** Applies any pending migrations; safe to call on every boot and in every test setup. */
+export function applySchema(db: Database.Database, logger: Logger): AppliedMigration[] {
+  return createMigrator({ db, dir: PROVIDER_MIGRATIONS_DIR, logger }).up();
 }
 
 /**
- * Full wipe used by `admin.reset` before reseeding. Children before
- * parents so this is safe with `foreign_keys = ON`.
+ * Full wipe used by `admin.reset` before reseeding (plan §4's admin API,
+ * distinct from the `db:reset` migration-CLI command). Children before
+ * parents so this is safe with `foreign_keys = ON`. Deliberately row-level
+ * `DELETE`, not drop/recreate: `admin.reset` must stay fast and in-process
+ * for tests, not re-run migrations.
  */
 export function resetAllTables(db: Database.Database): void {
   db.exec(`

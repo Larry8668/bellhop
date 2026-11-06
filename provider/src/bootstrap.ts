@@ -34,7 +34,8 @@ export function bootstrapProvider(deps: {
   const log = childLogger(logger, 'bootstrap');
 
   const db = openProviderDb(dbPath, { logger });
-  applySchema(db);
+  const applied = applySchema(db, logger);
+  log.info({ count: applied.length }, `migrations: ${applied.length} applied`);
 
   const rng = createSeededRng(seed);
 
