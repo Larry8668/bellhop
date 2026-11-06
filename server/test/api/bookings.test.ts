@@ -1,9 +1,16 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type { Booking } from '@bellhop/shared/contracts';
+import { systemClock } from '@bellhop/shared/clock';
 import { createApiApp } from '../../src/api/app.js';
+import { createUserQueue } from '../../src/core/queue/user-queue.js';
 import { ProviderError } from '../../src/provider-client/errors.js';
 import type { ProviderClient } from '../../src/provider-client/client.js';
 import { setupTestAuth, signUpAndSignIn, WEB_ORIGIN } from './test-helpers.js';
+
+const TEST_LIMITS = { statusChecks: 3, retriesPerTool: 2 } as const;
 
 function makeBooking(overrides: Partial<Booking> & { when: 'past' | 'upcoming' }): Booking & {
   when: 'past' | 'upcoming';
@@ -26,11 +33,18 @@ function makeBooking(overrides: Partial<Booking> & { when: 'past' | 'upcoming' }
 
 async function buildApp(providerClient: Partial<ProviderClient>) {
   const setup = await setupTestAuth();
+  const tracesDir = mkdtempSync(path.join(tmpdir(), 'bellhop-bookings-test-'));
+  const queue = createUserQueue({ logger: setup.logger });
   const app = createApiApp({
     auth: setup.auth,
     logger: setup.logger,
     providerClient: providerClient as ProviderClient,
     webOrigin: WEB_ORIGIN,
+    db: setup.db,
+    clock: systemClock,
+    limits: TEST_LIMITS,
+    tracesDir,
+    queue,
   });
   return app;
 }

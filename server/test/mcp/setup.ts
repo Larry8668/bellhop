@@ -1,6 +1,11 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { createLogger, type Logger } from '@bellhop/shared/logger';
 import type { ToolName } from '@bellhop/shared/contracts';
+import { systemClock } from '@bellhop/shared/clock';
 import { Hono } from 'hono';
+import { createUserQueue } from '../../src/core/queue/user-queue.js';
 import { openDatabase } from '../../src/db/open.js';
 import { createAuth, type Auth } from '../../src/auth/auth.js';
 import { migrateDb } from '../../src/db/migrate.js';
@@ -10,6 +15,8 @@ import { createMcpApp } from '../../src/mcp/index.js';
 import { signUpAndSignIn, WEB_ORIGIN, type SignedUpUser } from '../api/test-helpers.js';
 import { startStubProvider, type StubProvider, type StubProviderRoute } from '../helpers/stub-provider.js';
 import { startServer, type RunningServer } from './helpers.js';
+
+const MCP_TEST_LIMITS = { statusChecks: 3, retriesPerTool: 2 } as const;
 
 export interface McpTestContext {
   auth: Auth;
@@ -41,8 +48,20 @@ export async function setupMcpTest(
 
   const stub = await startStubProvider(routes);
   const providerClient = createProviderClient({ baseUrl: stub.url, timeoutMs: 5000, logger });
+  const tracesDir = mkdtempSync(path.join(tmpdir(), 'bellhop-mcp-test-'));
+  const queue = createUserQueue({ logger });
 
-  const apiApp = createApiApp({ auth, logger, providerClient, webOrigin: WEB_ORIGIN });
+  const apiApp = createApiApp({
+    auth,
+    logger,
+    providerClient,
+    webOrigin: WEB_ORIGIN,
+    db,
+    clock: systemClock,
+    limits: MCP_TEST_LIMITS,
+    tracesDir,
+    queue,
+  });
   const mcpApp = createMcpApp({ auth, providerClient, logger });
 
   const combined = new Hono();
