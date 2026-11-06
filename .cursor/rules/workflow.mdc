@@ -17,14 +17,19 @@ alwaysApply: true
 - If a delegate reports a conflict with the plan, resolve it with the user before continuing; do not let it guess.
 - IDE Task-tool subagents (same names) are the fallback when the CLI is unavailable.
 
-## Review panel before every PR — keep it brief
+## Review panel — milestone gates only
 
-1. Finish the task on a branch; tests green.
-2. `scripts/review-panel.sh "<task description>"` runs `review-quality`, `review-security`, `review-correctness` in parallel and prints one consolidated report. Reviewers are capped (5 blockers / 5 majors / 3 minors each) and told to finish in minutes.
-3. Fix every BLOCKER (delegate if non-trivial). MAJORs are fixed or deferred to `TODO.md` with a reason. MINORs are optional.
-4. If blockers were fixed, re-run only the reviewer(s) that raised them: `scripts/delegate.sh review-security <model> "<brief>" --readonly`.
-5. Open the PR with `gh pr create`; the PR body includes the three verdicts and deferred MAJORs.
-6. For tiny PRs (docs, config, < ~30 lines) one reviewer is enough; say which one in the PR body.
+The panel takes 1–8 minutes per run depending on model; it is **not** run on every PR during the demo build.
+
+- **Run it** at these gates, on the branch that completes the gate (or on `main` with `BASE=<last-gate-tag>`):
+  - end of Phase 2 (core engine: approvals, idempotency, recovery) — security + correctness mandatory
+  - end of Phase 3 (harness, limits, trace)
+  - end of Phase 6 (API, auth, UI) — security mandatory
+  - end of Phase 7 (MCP) — security mandatory
+  - any PR the user explicitly asks to review
+- **Skip it** for everything else (mocks, schema, seeds, docs, config, UI polish). Say "panel: skipped (not a gate)" in the PR body.
+- Command: `scripts/review-panel.sh "<what the gate delivers>" [base]`. Fix BLOCKERs; MAJORs fixed or deferred to `TODO.md` with a reason; MINORs optional. Re-run only the reviewer(s) that raised a blocker: `scripts/delegate.sh <review-role> <model> "<brief>" --readonly`.
+- Record each gate review in `LOGS.md` (verdicts, blockers fixed, deferred).
 
 ## Git — PRs only
 

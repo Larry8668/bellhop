@@ -36,9 +36,11 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 **Delegation via CLI (PR #3)**
 - Default delegation channel is the headless Cursor CLI: `scripts/delegate.sh <role> <model> "<brief>"`; `scripts/review-panel.sh "<task>"` runs the three reviewers in parallel with the diff inlined. IDE Task-tool subagents are the fallback.
 - Model per task by complexity: composer-2.5 / grok-4.7-medium (mechanical), claude-sonnet-5-thinking-high (multi-file logic), claude-opus-5-5-medium (core guarantees). No GPT models (dated).
-- Reviewer pins: quality grok-4.7-high, security claude-opus-5-5-medium, correctness grok-4.7-medium. Reviewers capped at 5/5/3 findings and run in `--mode ask` (CLI-enforced read-only).
-- First panel run on this branch: 490 s wall, because reviewers without `--force` had every `git diff` denied and retried. Fix: inline the diff, `--mode ask`. Panel findings (swallowed reviewer failures, prompt-only read-only, role path injection, non-unique transcript names, no cleanup trap) all fixed in the same PR.
-- `.cursor/cli.json` denies `git push/commit/merge`, `gh`, `docs/internal/**`, `.env*` to CLI delegates; deny rules survive `--force`. Parent owns git; main is PR-only (`AGENTS.md`).
+- Reviewers capped at 5/5/3 findings and run in `--mode ask` (CLI-enforced read-only) with the diff inlined inside an untrusted-data fence.
+- Panel timing on this branch (two runs): claude-opus-5-5-medium 44–46 s; grok-4.7-high 430–490 s; grok-4.7-medium 369–429 s, with or without shell access. Grok 4.7 is the bottleneck. Pins now: quality claude-opus-5-5-medium, security claude-opus-5-5-medium, correctness claude-sonnet-5-thinking-high. Grok available via `REVIEW_MODEL_*` overrides.
+- **Panel policy: milestone gates only** (end of Phases 2, 3, 6, 7, or on request), not per PR. Non-gate PRs say "panel: skipped (not a gate)".
+- Panel findings fixed in this PR: reviewer failures were swallowed; `--readonly` was prompt-only (now `--mode ask`, fail-closed on frontmatter); role name path injection; non-unique transcript names; no cleanup trap; truncation pipeline SIGPIPE; dirty-tree not detected; reviewers could be steered by `VERDICT:` text in the diff (now fenced + warned).
+- `.cursor/cli.json` denies `git push/commit/merge`, `gh`, `docs/internal/**`, `.env*` to CLI delegates; deny rules survive `--force` but are prefix-based and bypassable (`git -C`, `sh -c`), so writer delegates additionally run with git/gh credentials stripped from the environment (verified: `git -C . push` and `sh -c 'git push'` both fail auth; `gh` blocked) and `.husky`/`.cursor`/`core.hooksPath` are checked after each run. Parent owns git; main is PR-only (`AGENTS.md`).
 
 **Next**
 - Phase 0.

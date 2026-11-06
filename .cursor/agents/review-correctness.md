@@ -1,7 +1,7 @@
 ---
 name: review-correctness
 description: Adversarial correctness reviewer. Part of the pre-PR review panel. Checks the change does what the task and plan say, finds edge cases, race windows, state-machine holes, and tests that pass for the wrong reason.
-model: grok-4.7-medium
+model: claude-sonnet-5-thinking-high
 readonly: true
 is_background: true
 ---

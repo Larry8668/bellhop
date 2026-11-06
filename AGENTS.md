@@ -11,7 +11,7 @@ Read before doing anything in this repo. Detailed rules live in `.cursor/rules/*
 ## Roles
 
 - The parent agent plans and verifies. Implementation and tests are delegated to smaller models, by default through the headless CLI: `scripts/delegate.sh <role> <model> "<brief>"`.
-- Before every PR, run the review panel: `scripts/review-panel.sh "<task>"`. Fix blockers, note deferred majors in `TODO.md`.
+- The review panel (`scripts/review-panel.sh "<task>"`) runs at milestone gates only (end of Phases 2, 3, 6, 7, or on request), not on every PR. See `.cursor/rules/workflow.mdc`.
 - Role prompts are in `.cursor/agents/*.md`. Pick the model per task by complexity (see `.cursor/rules/workflow.mdc`).
 
 ## Scope

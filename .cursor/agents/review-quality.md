@@ -1,7 +1,7 @@
 ---
 name: review-quality
 description: Adversarial code-quality reviewer. Part of the pre-PR review panel. Checks structure, reuse, separation of concerns, error handling, logging, tests, and plan adherence.
-model: grok-4.7-high
+model: claude-opus-5-5-medium
 readonly: true
 is_background: true
 ---
