@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { api } from '../api/index.js';
 import type { Booking } from '../api/types.js';
 import { ApiError } from '../api/client.js';
 import { Layout } from '../components/Layout.js';
 import { Badge } from '../components/Badge.js';
+import { Button } from '../components/Button.js';
 import { ErrorBanner } from '../components/ErrorBanner.js';
 import { Spinner } from '../components/Spinner.js';
 import { log } from '../logger.js';
@@ -17,9 +19,11 @@ function statusTone(
 }
 
 export function Bookings(): React.ReactElement {
+  const navigate = useNavigate();
   const [items, setItems] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancelBusyId, setCancelBusyId] = useState<string | null>(null);
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true);
@@ -51,7 +55,24 @@ export function Bookings(): React.ReactElement {
     return { upcoming: u, past: p };
   }, [items]);
 
+  async function handleCancelBooking(bookingId: string): Promise<void> {
+    setError(null);
+    setCancelBusyId(bookingId);
+    try {
+      await api.createProposal({ action: 'cancel', booking_id: bookingId });
+      navigate('/proposals');
+    } catch (err) {
+      log.error({ err }, 'create cancel proposal failed');
+      const message =
+        err instanceof ApiError ? err.message : 'Could not request cancellation';
+      setError(message);
+    } finally {
+      setCancelBusyId(null);
+    }
+  }
+
   function row(b: Booking): React.ReactElement {
+    const canRequestCancel = b.when === 'upcoming' && b.status === 'confirmed';
     return (
       <li
         key={b.id}
@@ -68,6 +89,16 @@ export function Bookings(): React.ReactElement {
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="info">{b.price} INR</Badge>
           <Badge tone={statusTone(b.status)}>{b.status}</Badge>
+          {canRequestCancel ? (
+            <Button
+              variant="secondary"
+              className="text-xs"
+              disabled={cancelBusyId === b.id}
+              onClick={() => void handleCancelBooking(b.id)}
+            >
+              Cancel booking
+            </Button>
+          ) : null}
         </div>
       </li>
     );

@@ -31,6 +31,9 @@ export function Layout({ children }: { children: ReactNode }): React.ReactElemen
             <NavLink to="/bookings" className={({ isActive }) => navClass(isActive)}>
               Bookings
             </NavLink>
+            <NavLink to="/proposals" className={({ isActive }) => navClass(isActive)}>
+              Proposals
+            </NavLink>
             <Button
               variant="ghost"
               className="ml-1"

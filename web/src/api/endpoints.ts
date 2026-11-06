@@ -6,6 +6,8 @@ export const endpoints = {
   messages: '/api/messages',
   sendMessage: '/api/chat/send',
   events: '/api/events',
+  proposals: '/api/proposals',
+  task: '/api/task',
   approve: (proposalId: string) => `/api/proposals/${proposalId}/approve`,
   decline: (proposalId: string) => `/api/proposals/${proposalId}/decline`,
   facts: '/api/facts',

@@ -1,9 +1,13 @@
 import type {
   ApiKey,
+  ApproveResponse,
   Booking,
   ChatMessage,
   CreateApiKeyResult,
+  CreateProposalInput,
   Fact,
+  ProposalDetail,
+  TaskState,
   TraceEvent,
   User,
 } from './types.js';
@@ -18,8 +22,11 @@ export interface Api {
   listMessages(): Promise<ChatMessage[]>;
   sendMessage(text: string): Promise<ChatMessage>;
   streamEvents(onEvent: (e: ChatStreamEvent) => void): () => void;
-  approve(proposalId: string): Promise<void>;
+  listProposals(): Promise<ProposalDetail[]>;
+  createProposal(input: CreateProposalInput): Promise<ProposalDetail>;
+  approve(proposalId: string, hash: string): Promise<ApproveResponse>;
   decline(proposalId: string): Promise<void>;
+  getTask(): Promise<TaskState | null>;
   listFacts(): Promise<Fact[]>;
   updateFact(id: string, value: string): Promise<void>;
   forgetFact(id: string): Promise<void>;

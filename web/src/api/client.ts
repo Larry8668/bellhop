@@ -1,6 +1,21 @@
 import { z } from 'zod';
 import { endpoints } from './endpoints.js';
 import type { Api, ChatStreamEvent } from './contract.js';
+import {
+  apiKeysListResponseSchema,
+  approveResponseSchema,
+  bookingSchema,
+  chatMessageSchema,
+  createApiKeyResponseSchema,
+  createProposalResponseSchema,
+  declineResponseSchema,
+  factSchema,
+  getTaskResponseSchema,
+  listProposalsResponseSchema,
+  meResponseSchema,
+  traceEventSchema,
+} from './schemas.js';
+import type { CreateProposalInput } from './types.js';
 import { log } from '../logger.js';
 
 export interface ApiErrorShape {
@@ -26,80 +41,21 @@ export class ApiError extends Error implements ApiErrorShape {
   }
 }
 
-const userSchema = z.object({
-  id: z.string(),
-  email: z.string(),
-  name: z.string(),
-});
-
-/** `GET /api/me` wraps the user with how the caller authenticated (session vs API key). */
-const meResponseSchema = z.object({
-  user: userSchema,
-  via: z.enum(['session', 'api_key']),
-});
-
-const chatMessageSchema = z.object({
-  id: z.string(),
-  role: z.enum(['user', 'assistant', 'system']),
-  text: z.string(),
-  createdAt: z.string(),
-});
-
-const traceEventSchema = z.object({
-  ts: z.string(),
-  type: z.string(),
-  summary: z.string(),
-  detail: z.unknown().optional(),
-});
-
-const factSchema = z.object({
-  id: z.string(),
-  key: z.string(),
-  value: z.string(),
-  kind: z.enum(['explicit', 'inferred']),
-  status: z.enum(['active', 'unconfirmed', 'forgotten']),
-});
-
-const bookingSchema = z.object({
-  id: z.string(),
-  providerName: z.string(),
-  service: z.string(),
-  slot: z.object({
-    start: z.string(),
-    end: z.string(),
-  }),
-  price: z.number(),
-  currency: z.literal('INR'),
-  status: z.enum(['confirmed', 'cancelled', 'rescheduled']),
-  when: z.enum(['past', 'upcoming']),
-});
-
-/** List item shape from `GET /api/keys` — never includes key material. */
-const apiKeySchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  start: z.string().optional(),
-  prefix: z.string().optional(),
-  createdAt: z.string(),
-});
-
-const apiKeysListResponseSchema = z.object({
-  keys: z.array(apiKeySchema),
-});
-
-/** `POST /api/keys` returns the plaintext key once, alongside its id/name/createdAt. */
-const createApiKeyResponseSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  key: z.string(),
-  createdAt: z.string(),
-});
-
-const errorBodySchema = z.object({
-  code: z.string().optional(),
-  message: z.string().optional(),
-  error: z.string().optional(),
-});
+const errorBodySchema = z
+  .object({
+    code: z.string().optional(),
+    message: z.string().optional(),
+    error: z
+      .union([
+        z.string(),
+        z.object({
+          code: z.string().optional(),
+          message: z.string().optional(),
+        }),
+      ])
+      .optional(),
+  })
+  .passthrough();
 
 async function parseJson<T>(
   response: Response,
@@ -140,9 +96,17 @@ async function readError(response: Response): Promise<ApiError> {
     const body = await response.json();
     const parsed = errorBodySchema.safeParse(body);
     if (parsed.success) {
-      message =
-        parsed.data.message ?? parsed.data.error ?? parsed.data.code ?? message;
-      code = parsed.data.code ?? code;
+      const d = parsed.data;
+      const nested = d.error;
+      if (nested !== undefined && typeof nested === 'object') {
+        message = nested.message ?? message;
+        code = nested.code ?? code;
+      } else if (typeof nested === 'string') {
+        message = nested;
+      } else {
+        message = d.message ?? d.code ?? message;
+        code = d.code ?? code;
+      }
     }
   } catch {
     // ignore
@@ -265,11 +229,58 @@ export const httpApi: Api = {
     };
   },
 
-  approve: (proposalId) =>
-    fetchOk(endpoints.approve(proposalId), { method: 'POST' }),
+  listProposals: async () => {
+    const data = await fetchJson(
+      endpoints.proposals,
+      undefined,
+      listProposalsResponseSchema,
+      'listProposals',
+    );
+    return data.proposals;
+  },
 
-  decline: (proposalId) =>
-    fetchOk(endpoints.decline(proposalId), { method: 'POST' }),
+  createProposal: (input: CreateProposalInput) =>
+    fetchJson(
+      endpoints.proposals,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      },
+      createProposalResponseSchema,
+      'createProposal',
+    ).then((r) => r.proposal),
+
+  approve: (proposalId, hash) =>
+    fetchJson(
+      endpoints.approve(proposalId),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hash }),
+      },
+      approveResponseSchema,
+      'approve',
+    ),
+
+  decline: async (proposalId) => {
+    await fetchJson(
+      endpoints.decline(proposalId),
+      { method: 'POST' },
+      declineResponseSchema,
+      'decline',
+    );
+  },
+
+  getTask: async () => {
+    const data = await fetchJson(
+      endpoints.task,
+      undefined,
+      getTaskResponseSchema,
+      'getTask',
+    );
+    return data.task;
+  },
 
   listFacts: () =>
     fetchJson(endpoints.facts, undefined, z.array(factSchema), 'facts'),

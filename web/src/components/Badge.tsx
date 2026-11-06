@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { HTMLAttributes, ReactNode } from 'react';
 
 const toneClass: Record<string, string> = {
   default: 'bg-zinc-100 text-zinc-800',
@@ -11,13 +11,15 @@ const toneClass: Record<string, string> = {
 export function Badge({
   tone = 'default',
   children,
+  ...rest
 }: {
   tone?: keyof typeof toneClass;
   children: ReactNode;
-}): React.ReactElement {
+} & Omit<HTMLAttributes<HTMLSpanElement>, 'children'>): React.ReactElement {
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${toneClass[tone] ?? toneClass.default}`}
+      {...rest}
     >
       {children}
     </span>
