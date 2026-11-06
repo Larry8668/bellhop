@@ -29,3 +29,6 @@ npm-debug.log*
 # Editor
 .vscode/
 .idea/
+
+# per-user MCP client config (contains an API key)
+.cursor/mcp.json
