@@ -228,8 +228,8 @@ describe('MCP server: get_profile (API-key user only)', () => {
     const facts = new Map<string, MemoryFact[]>();
     const memory: HarnessMemory = {
       selectForContext: () => [],
-      remember: () => {},
-      forget: () => {},
+      remember: () => { throw new Error('unused'); },
+      forget: () => false,
       getProfile: (userId) => facts.get(userId) ?? [],
       logContext: () => {},
     };
@@ -250,6 +250,7 @@ describe('MCP server: get_profile (API-key user only)', () => {
       value: 'Indiranagar',
       kind: 'explicit',
       status: 'active',
+      tags: [],
     };
     const factB: MemoryFact = {
       id: 'fact_b',
@@ -257,6 +258,7 @@ describe('MCP server: get_profile (API-key user only)', () => {
       value: 'victim-secret',
       kind: 'explicit',
       status: 'active',
+      tags: [],
     };
     facts.set(userA, [factA]);
     facts.set(userB, [factB]);
@@ -267,12 +269,16 @@ describe('MCP server: get_profile (API-key user only)', () => {
     });
 
     expect(result.isError).toBeFalsy();
-    expect(result.structuredContent).toEqual({ facts: [factA] });
+    expect(result.structuredContent).toEqual({
+      facts: [{ id: factA.id, key: factA.key, value: factA.value, kind: factA.kind, status: factA.status }],
+    });
     const text = (result.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
     expect(text).toContain('Indiranagar');
     expect(text).not.toContain('victim-secret');
 
     const other = await clientB.client.callTool({ name: 'get_profile', arguments: {} });
-    expect(other.structuredContent).toEqual({ facts: [factB] });
+    expect(other.structuredContent).toEqual({
+      facts: [{ id: factB.id, key: factB.key, value: factB.value, kind: factB.kind, status: factB.status }],
+    });
   });
 });

@@ -58,8 +58,8 @@ const DEFAULT_TURN_LIMITS: TurnLimits = {
 export function emptyMemory(): HarnessMemory {
   return {
     selectForContext: () => [],
-    remember: () => {},
-    forget: () => {},
+    remember: () => { throw new Error('unused'); },
+    forget: () => false,
     getProfile: () => [],
     logContext: () => {},
   };

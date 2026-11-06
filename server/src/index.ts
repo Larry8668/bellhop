@@ -1,3 +1,4 @@
+import { createCoreEngine } from './core/engine.js';
 import { systemClock } from '@bellhop/shared/clock';
 import { createLogger } from '@bellhop/shared/logger';
 import { loadConfig } from './config.js';
@@ -85,8 +86,14 @@ const proactive = createProactive({
   clock: systemClock,
   providerClient,
   logger,
-  tracesDir: config.TRACES_DIR,
-  limits: turnLimits,
+  engine: createCoreEngine({
+    db,
+    clock: systemClock,
+    providerClient,
+    trace: createTraceWriter({ dir: config.TRACES_DIR, runId: `proactive_${Date.now()}`, clock: systemClock }),
+    logger,
+    limits: { statusChecks: config.LIMIT_STATUS_CHECKS, retriesPerTool: config.LIMIT_RETRIES_PER_TOOL },
+  }),
   queue,
   prefs: (userId) =>
     memory.selectForContext(userId, {}).map((fact) => ({ key: fact.key, value: fact.value })),
