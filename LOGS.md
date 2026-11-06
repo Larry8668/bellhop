@@ -89,6 +89,13 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 - Scenario-id discipline: unit tests must not carry `S##`/`H#` prefixes unless they follow plan §16 numbering; the scenario suite under `server/test/scenarios/` is the only EVALS source.
 - Live check on the phase branch: boot applied `0003_core`, recovery ran, `POST /api/proposals` → wrong hash 409 → approve → `booked` → second approve `replayed: true`; trace file shows approval created/consumed → intent pending → EXECUTING → `book` → succeeded → VERIFYING → DONE; `x-request-id` matches the server line to the provider line.
 
+**Gate review — Phase 2 (PR #31), panel 404 s total (quality 31 s, security 129 s, correctness 404 s; all `claude-opus-5-5-medium`/sonnet per role files). All three: REQUEST_CHANGES.**
+- BLOCKER (security): `POST /api/proposals/:id/approve` accepted an API key; the coding agent driving MCP can read `.cursor/mcp.json` and curl an approval into existence. Fix: `requireSession` on every proposal mutation (approvals come only from a browser session or MCP elicitation).
+- BLOCKER (correctness): `approvals.consume` and `intents.begin` were two statements; a crash between them strands a consumed approval with no intent row that recovery cannot see. Fix: one transaction.
+- MAJOR fixed: card `provider_name`/`service` came from model args and were not hashed (spoofable) → resolved from `get_provider`, dropped from external schemas; restart recovery marked a `not_booked` book intent `failed` and asked for a fresh approval → could double-book if the timed-out attempt landed late; now retries once with the *same* key, else `failed`, never re-asks; proposal create/decline not queued; elicitation held the user's queue while the human thought; engine calls did not forward `x-request-id`; trace run ids were minted from a client header; recovery bypassed `IntentService` and read `user_id` from the provider payload; `pending → approved` was not a compare-and-set.
+- Deferred to `TODO.md`: shared request-id middleware, `approveOrReplay` in core, per-user proposal rate limit.
+- Panel diff was truncated at 120 k chars (112 files) — next gates should run on smaller PRs or with `BASE=<last gate tag>`.
+
 **Next**
-- Phase 2 gate: review panel (security + correctness mandatory) on the `feat/phase-2-core` → `main` PR; fix blockers; merge.
+- Merge the gate fixes (PRs into `feat/phase-2-core`), re-run only security + correctness on the fix diff, merge #31.
 - Phase 3: harness (ToolLoopAgent, tools incl. `propose_*` validation against `task_state`, context layer, limits, per-turn trace), scenarios 1–5, 23–28.

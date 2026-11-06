@@ -154,7 +154,6 @@ export async function bookThroughExecutor(
   h.scenario('BOOK_SUCCESS');
   const outcome = await h.executor.execute(TEST_USER, approval.id);
   if (outcome.kind !== 'booked') throw new Error(`setup booking failed: ${outcome.kind}`);
-  h.stateMachine.transition(TEST_USER, 'GATHERING', 'new errand');
   h.calls.length = 0;
   return outcome.booking.booking_id;
 }
