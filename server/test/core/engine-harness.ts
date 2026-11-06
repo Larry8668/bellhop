@@ -49,7 +49,13 @@ export const DEFAULT_LIMITS: ExecutionLimits = { statusChecks: 3, retriesPerTool
 const CLIENT_TIMEOUT_MS = 300;
 const PROVIDER_TIMEOUT_DELAY_MS = 800;
 
-export async function startEngineHarness(opts: { limits?: ExecutionLimits } = {}): Promise<EngineHarness> {
+export interface EngineHarnessOptions {
+  limits?: ExecutionLimits;
+  /** Lets a test inject faults into the intent service the executor sees (e.g. a crash mid-claim). */
+  wrapIntents?: (intents: IntentService) => IntentService;
+}
+
+export async function startEngineHarness(opts: EngineHarnessOptions = {}): Promise<EngineHarness> {
   const tp = await startTestProvider({ seed: 42, timeoutDelayMs: PROVIDER_TIMEOUT_DELAY_MS });
   const logger = createLogger({ name: 'engine-test', level: 'silent' });
   const db = createTestDb();
@@ -79,7 +85,7 @@ export async function startEngineHarness(opts: { limits?: ExecutionLimits } = {}
     providerClient,
     proposals,
     approvals,
-    intents,
+    intents: opts.wrapIntents?.(intents) ?? intents,
     stateMachine,
     trace,
     logger,
@@ -126,12 +132,7 @@ export async function proposeBooking(
   slot: Slot = provider.slots[0]!,
   userId = TEST_USER,
 ): Promise<Proposal> {
-  const result = await h.proposals.proposeBooking(userId, {
-    provider_id: provider.id,
-    provider_name: provider.name,
-    service: provider.service,
-    slot,
-  });
+  const result = await h.proposals.proposeBooking(userId, { provider_id: provider.id, slot });
   if (!result.ok) throw new Error(`proposeBooking failed: ${result.code}`);
   h.calls.length = 0;
   return result.proposal;

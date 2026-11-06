@@ -3,19 +3,29 @@ import type { Booking } from '@bellhop/shared/contracts';
 import type { Clock } from '@bellhop/shared/clock';
 import { childLogger, type Logger } from '@bellhop/shared/logger';
 import type { ProviderClient } from '../../provider-client/index.js';
+import { ProviderError } from '../../provider-client/errors.js';
 import type { TraceWriter } from '../../trace/writer.js';
-import { createApprovalsRepo } from '../repo/approvals.repo.js';
-import { createBookingsRepo } from '../repo/bookings.repo.js';
-import { createIntentsRepo } from '../repo/intents.repo.js';
-import { createProposalsRepo } from '../repo/proposals.repo.js';
-import type { AppBooking, Intent } from '../types.js';
+import { toAppBooking } from '../actions/app-booking.js';
+import { isTimeout, isTransient } from '../actions/context.js';
+import type { ExecutionOutcome, SuccessOutcome } from '../actions/outcomes.js';
+import { createTracedCall, type TracedProviderCall } from '../actions/traced-call.js';
+import { createIntentService, type IntentService } from '../intents/service.js';
+import {
+  createApprovalsRepo,
+  createBookingsRepo,
+  createIntentsRepo,
+  createProposalsRepo,
+  createTaskStateRepo,
+} from '../repo/index.js';
+import { createStateMachine, type StateMachine } from '../state/machine.js';
+import type { Intent, Proposal, TaskStateName } from '../types.js';
 
 export interface ResolvePendingIntentsResult {
   /** Intents moved to `succeeded` or `failed` (plan §8). */
   resolved: number;
   succeeded: number;
   failed: number;
-  /** Provider status check threw (down/unreachable) — left `unknown` for a later retry. */
+  /** The provider never answered conclusively (down, timeout, transient) — left `unknown` for a later pass. */
   stillUnknown: number;
 }
 
@@ -27,188 +37,187 @@ export interface ResolvePendingIntentsDeps {
   logger: Logger;
 }
 
-function mapProviderBooking(booking: Booking, syncedAt: string): AppBooking {
-  return {
-    booking_id: booking.booking_id,
-    user_id: booking.user_id,
-    provider_id: booking.provider_id,
-    provider_name: booking.provider_name,
-    service: booking.service,
-    slot: booking.slot,
-    price: booking.price,
-    currency: booking.currency,
-    status: booking.status,
-    synced_at: syncedAt,
-  };
+type Resolution = 'succeeded' | 'failed' | 'unknown';
+
+interface RecoveryContext {
+  clock: Clock;
+  log: Logger;
+  call: TracedProviderCall;
+  intents: IntentService;
+  stateMachine: StateMachine;
+  approvalsRepo: ReturnType<typeof createApprovalsRepo>;
+  proposalsRepo: ReturnType<typeof createProposalsRepo>;
+  bookingsRepo: ReturnType<typeof createBookingsRepo>;
+  taskStateRepo: ReturnType<typeof createTaskStateRepo>;
 }
 
-/**
- * A `cancel`/`reschedule` intent has no booking id of its own — only the
- * proposal that was approved does — so recovery has to walk
- * intent -> approval -> proposal to find it (plan §5/§7/§8).
- */
-function findBookingIdForIntent(db: Database.Database, intent: Intent): string | null {
-  const approval = createApprovalsRepo(db).get(intent.user_id, intent.approval_id);
-  if (approval === undefined) return null;
-  const proposal = createProposalsRepo(db).get(intent.user_id, approval.proposal_id);
-  return proposal?.booking_id ?? null;
+/** Only an errand still in flight is settled; a user who has since moved on keeps their current state. */
+const SETTLE_PATH: Record<'DONE' | 'FAILED', TaskStateName[]> = {
+  DONE: ['EXECUTING', 'VERIFYING', 'DONE'],
+  FAILED: ['FAILED'],
+};
+const IN_FLIGHT: ReadonlySet<TaskStateName> = new Set(['APPROVED', 'EXECUTING', 'VERIFYING']);
+
+function nowIso(ctx: RecoveryContext): string {
+  return ctx.clock.now().toISOString();
 }
 
-/**
- * Resolves one `pending`/`unknown` intent that was never booked under the
- * `book` action: it must be `failed`, never silently re-booked, because the
- * approval was for a slot/price at a moment that has already passed — the
- * user will be asked to confirm again (plan §8).
- */
-function resolveUnbookedBookIntent(
-  intentsRepo: ReturnType<typeof createIntentsRepo>,
-  trace: TraceWriter,
-  intent: Intent,
-  now: string,
-): 'failed' {
-  const result = { reason: 'not_booked_after_restart' };
-  intentsRepo.setStatus(intent.idempotency_key, 'failed', now, result);
-  trace.emit({
-    type: 'intent',
-    idempotency_key: intent.idempotency_key,
-    action: intent.action,
-    status: 'failed',
-  });
+function settleTaskState(ctx: RecoveryContext, intent: Intent, to: 'DONE' | 'FAILED'): void {
+  const userId = intent.user_id;
+  const current = ctx.taskStateRepo.get(userId)?.state ?? 'GATHERING';
+  if (!IN_FLIGHT.has(current)) {
+    ctx.log.info({ userId, idempotency_key: intent.idempotency_key, current, to }, 'recovery: task moved on, state left');
+    return;
+  }
+  const path = SETTLE_PATH[to];
+  try {
+    for (const step of path.slice(path.indexOf(current) + 1)) {
+      ctx.stateMachine.transition(userId, step, `${intent.action} resolved by startup recovery`);
+    }
+  } catch (err) {
+    ctx.log.error({ err, userId, idempotency_key: intent.idempotency_key, to }, 'recovery: could not settle task state');
+  }
+}
+
+/** Walks intent → approval → proposal: only the approved proposal knows the hold / booking id (plan §5/§7). */
+function proposalFor(ctx: RecoveryContext, intent: Intent): Proposal | undefined {
+  const approval = ctx.approvalsRepo.get(intent.user_id, intent.approval_id);
+  if (approval === undefined) return undefined;
+  return ctx.proposalsRepo.get(intent.user_id, approval.proposal_id);
+}
+
+function markUnknown(ctx: RecoveryContext, intent: Intent, err: unknown, what: string): Resolution {
+  ctx.log.warn({ err, idempotency_key: intent.idempotency_key, action: intent.action }, `recovery: ${what}, left unknown`);
+  ctx.intents.unknown(intent.idempotency_key);
+  return 'unknown';
+}
+
+function succeed(ctx: RecoveryContext, intent: Intent, outcome: SuccessOutcome): Resolution {
+  ctx.intents.succeed(intent.idempotency_key, outcome);
+  ctx.bookingsRepo.upsert(outcome.booking);
+  settleTaskState(ctx, intent, 'DONE');
+  return 'succeeded';
+}
+
+function fail(ctx: RecoveryContext, intent: Intent, outcome: Extract<ExecutionOutcome, { kind: 'failed' }>): Resolution {
+  ctx.log.info({ idempotency_key: intent.idempotency_key, action: intent.action, code: outcome.code }, 'recovery: failed');
+  ctx.intents.fail(intent.idempotency_key, outcome);
+  settleTaskState(ctx, intent, 'FAILED');
   return 'failed';
 }
 
-/**
- * Resolves one `pending`/`unknown` `cancel`/`reschedule` intent by checking
- * the booking's current status via `list_bookings` — the provider's
- * booking-idempotency lookup (`get_booking_status`) only tracks `book`
- * calls, so it can never confirm these (plan §8).
- */
-async function resolveCancelOrRescheduleIntent(
-  deps: ResolvePendingIntentsDeps,
-  intentsRepo: ReturnType<typeof createIntentsRepo>,
-  bookingsRepo: ReturnType<typeof createBookingsRepo>,
-  log: Logger,
-  intent: Intent,
-  now: string,
-): Promise<'succeeded' | 'failed' | 'unknown'> {
-  const expectedStatus = intent.action === 'cancel' ? 'cancelled' : 'rescheduled';
-  const bookingId = findBookingIdForIntent(deps.db, intent);
+function booked(ctx: RecoveryContext, intent: Intent, booking: Booking): Resolution {
+  // Invariant 2: the user id is ours (the intent row), never the provider payload's.
+  return succeed(ctx, intent, { kind: 'booked', booking: toAppBooking(intent.user_id, booking, nowIso(ctx)), replayed: false });
+}
 
-  let currentBooking: Booking | undefined;
+/**
+ * Plan §8: `not_booked` → ONE retry with the SAME key and the approved hold.
+ * A late-landing first attempt shares the key, so the provider dedupes it;
+ * asking the user to re-approve would mint a new key and could book twice.
+ */
+async function resolveBook(ctx: RecoveryContext, intent: Intent): Promise<Resolution> {
+  const key = intent.idempotency_key;
+  let status;
+  try {
+    status = await ctx.call('get_booking_status', intent.user_id, { idempotency_key: key });
+  } catch (err) {
+    return markUnknown(ctx, intent, err, 'get_booking_status failed');
+  }
+  if (status.status === 'booked') {
+    if (status.booking === null) return markUnknown(ctx, intent, undefined, 'booked status without a booking');
+    return booked(ctx, intent, status.booking);
+  }
+
+  const holdId = proposalFor(ctx, intent)?.hold_id ?? null;
+  if (holdId === null) {
+    ctx.log.error({ idempotency_key: key }, 'recovery: book intent has no approved hold to retry');
+    return markUnknown(ctx, intent, undefined, 'no hold to retry');
+  }
+
+  ctx.intents.attempt(key);
+  try {
+    const out = await ctx.call('book', intent.user_id, { hold_id: holdId, idempotency_key: key });
+    return booked(ctx, intent, out.booking);
+  } catch (err) {
+    if (!(err instanceof ProviderError) || isTimeout(err) || isTransient(err)) {
+      return markUnknown(ctx, intent, err, 'same-key book retry inconclusive');
+    }
+    return fail(ctx, intent, { kind: 'failed', code: err.code, message: err.message });
+  }
+}
+
+/**
+ * `get_booking_status` only tracks `book` keys, so cancel/reschedule are
+ * checked against the booking's current status via `list_bookings`.
+ */
+async function resolveBookingChange(ctx: RecoveryContext, intent: Intent): Promise<Resolution> {
+  const expected = intent.action === 'cancel' ? 'cancelled' : 'rescheduled';
+  const bookingId = proposalFor(ctx, intent)?.booking_id ?? null;
+
+  let current: Booking | undefined;
   if (bookingId !== null) {
     try {
-      const { bookings } = await deps.providerClient.list_bookings(intent.user_id, {
-        user_id: intent.user_id,
-      });
-      currentBooking = bookings.find((b) => b.booking_id === bookingId);
+      const { bookings } = await ctx.call('list_bookings', intent.user_id, { user_id: intent.user_id });
+      current = bookings.find((b) => b.booking_id === bookingId);
     } catch (err) {
-      log.warn(
-        { err, idempotency_key: intent.idempotency_key, action: intent.action },
-        'recovery: list_bookings failed, leaving intent unknown',
-      );
-      intentsRepo.setStatus(intent.idempotency_key, 'unknown', now);
-      deps.trace.emit({
-        type: 'intent',
-        idempotency_key: intent.idempotency_key,
-        action: intent.action,
-        status: 'unknown',
-      });
-      return 'unknown';
+      return markUnknown(ctx, intent, err, 'list_bookings failed');
     }
   }
 
-  if (currentBooking !== undefined && currentBooking.status === expectedStatus) {
-    intentsRepo.setStatus(intent.idempotency_key, 'succeeded', now, { booking: currentBooking });
-    bookingsRepo.upsert(mapProviderBooking(currentBooking, now));
-    deps.trace.emit({
-      type: 'intent',
-      idempotency_key: intent.idempotency_key,
-      action: intent.action,
-      status: 'succeeded',
+  if (current === undefined || current.status !== expected) {
+    return fail(ctx, intent, {
+      kind: 'failed',
+      code: `not_${expected}_after_restart`,
+      message: `the provider shows the booking was not ${expected}`,
     });
-    return 'succeeded';
   }
 
-  const result = { reason: `not_${expectedStatus}_after_restart` };
-  intentsRepo.setStatus(intent.idempotency_key, 'failed', now, result);
-  deps.trace.emit({
-    type: 'intent',
-    idempotency_key: intent.idempotency_key,
-    action: intent.action,
-    status: 'failed',
-  });
-  return 'failed';
+  const booking = toAppBooking(intent.user_id, current, nowIso(ctx));
+  if (intent.action === 'cancel') return succeed(ctx, intent, { kind: 'cancelled', booking, replayed: false });
+  const previousSlot = ctx.bookingsRepo.get(intent.user_id, booking.booking_id)?.slot ?? booking.slot;
+  return succeed(ctx, intent, { kind: 'rescheduled', booking, previous_slot: previousSlot, replayed: false });
 }
 
 /**
  * Must run before the server accepts turns (plan §8): resolves every
- * `pending`/`unknown` intent against the provider's own record of what
- * happened, so a crash mid-booking never leaves the app lying about whether
- * something was booked, cancelled, or rescheduled.
+ * `pending`/`unknown` intent against the provider's own record, so a crash
+ * mid-action never leaves the app lying about what happened.
  */
-export async function resolvePendingIntents(
-  deps: ResolvePendingIntentsDeps,
-): Promise<ResolvePendingIntentsResult> {
+export async function resolvePendingIntents(deps: ResolvePendingIntentsDeps): Promise<ResolvePendingIntentsResult> {
   const { db, clock, providerClient, trace, logger } = deps;
   const log = childLogger(logger, 'recovery');
-  const intentsRepo = createIntentsRepo(db);
-  const bookingsRepo = createBookingsRepo(db);
+  const ctx: RecoveryContext = {
+    clock,
+    log,
+    call: createTracedCall({ providerClient, clock, trace }),
+    intents: createIntentService({ db, clock, trace, logger }),
+    stateMachine: createStateMachine({ db, clock, trace, logger }),
+    approvalsRepo: createApprovalsRepo(db),
+    proposalsRepo: createProposalsRepo(db),
+    bookingsRepo: createBookingsRepo(db),
+    taskStateRepo: createTaskStateRepo(db),
+  };
 
-  const unresolved = intentsRepo.listUnresolved();
-  let succeeded = 0;
-  let failed = 0;
-  let stillUnknown = 0;
-
-  for (const intent of unresolved) {
-    const now = clock.now().toISOString();
-
-    let statusCheck: { status: 'booked' | 'not_booked'; booking: Booking | null };
+  const counts: Record<Resolution, number> = { succeeded: 0, failed: 0, unknown: 0 };
+  for (const intent of createIntentsRepo(db).listUnresolved()) {
+    let resolution: Resolution;
     try {
-      statusCheck = await providerClient.get_booking_status(intent.user_id, {
-        idempotency_key: intent.idempotency_key,
-      });
+      resolution = intent.action === 'book' ? await resolveBook(ctx, intent) : await resolveBookingChange(ctx, intent);
     } catch (err) {
-      log.warn(
-        { err, idempotency_key: intent.idempotency_key, action: intent.action },
-        'recovery: get_booking_status failed, leaving intent unknown',
-      );
-      intentsRepo.setStatus(intent.idempotency_key, 'unknown', now);
-      trace.emit({
-        type: 'intent',
-        idempotency_key: intent.idempotency_key,
-        action: intent.action,
-        status: 'unknown',
-      });
-      stillUnknown += 1;
-      continue;
+      // One broken row must not block startup; it stays unresolved for the next pass.
+      log.error({ err, idempotency_key: intent.idempotency_key, action: intent.action }, 'recovery: intent failed to resolve');
+      resolution = 'unknown';
     }
-
-    if (statusCheck.status === 'booked' && statusCheck.booking !== null) {
-      intentsRepo.setStatus(intent.idempotency_key, 'succeeded', now, { booking: statusCheck.booking });
-      bookingsRepo.upsert(mapProviderBooking(statusCheck.booking, now));
-      trace.emit({
-        type: 'intent',
-        idempotency_key: intent.idempotency_key,
-        action: intent.action,
-        status: 'succeeded',
-      });
-      succeeded += 1;
-      continue;
-    }
-
-    if (intent.action === 'book') {
-      resolveUnbookedBookIntent(intentsRepo, trace, intent, now);
-      failed += 1;
-      continue;
-    }
-
-    const outcome = await resolveCancelOrRescheduleIntent(deps, intentsRepo, bookingsRepo, log, intent, now);
-    if (outcome === 'succeeded') succeeded += 1;
-    else if (outcome === 'failed') failed += 1;
-    else stillUnknown += 1;
+    counts[resolution] += 1;
   }
 
-  const resolved = succeeded + failed;
-  log.info({ resolved, succeeded, failed, stillUnknown }, 'startup intent recovery complete');
-  return { resolved, succeeded, failed, stillUnknown };
+  const result = {
+    resolved: counts.succeeded + counts.failed,
+    succeeded: counts.succeeded,
+    failed: counts.failed,
+    stillUnknown: counts.unknown,
+  };
+  log.info(result, 'startup intent recovery complete');
+  return result;
 }

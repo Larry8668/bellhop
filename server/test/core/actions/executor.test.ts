@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ProviderSummary } from '@bellhop/shared/contracts';
 import { describeOutcome } from '../../../src/core/actions/outcomes.js';
-import { idempotencyKey } from '../../../src/core/intents/service.js';
+import { idempotencyKey, type IntentService } from '../../../src/core/intents/service.js';
 import {
   createApprovalsRepo,
   createBookingsRepo,
@@ -294,6 +294,75 @@ describe('executor', () => {
         kind: 'rejected',
         reason: 'approval_already_consumed',
       });
+    });
+  });
+
+  describe('crash safety', () => {
+    /** The first `intents.fail` is recorded, then the process "crashes" before anything after it runs. */
+    function crashAfterFirstFail(intents: IntentService): IntentService {
+      let crashed = false;
+      return {
+        ...intents,
+        fail: (...args) => {
+          const intent = intents.fail(...args);
+          if (crashed) return intent;
+          crashed = true;
+          throw new Error('simulated crash after intent failed');
+        },
+      };
+    }
+
+    it('intents.begin throws → consume rolled back, approval still valid, a second execute books once', async () => {
+      await h.close();
+      let crashed = false;
+      h = await startEngineHarness({
+        wrapIntents: (intents) => ({
+          ...intents,
+          begin: (...args) => {
+            if (!crashed) {
+              crashed = true;
+              throw new Error('simulated crash between consume and intent');
+            }
+            return intents.begin(...args);
+          },
+        }),
+      });
+      provider = await findProvider(h);
+      const approval = approve(h, await proposeBooking(h, provider));
+      const key = idempotencyKey('book', approval.id);
+
+      const first = await h.executor.execute(TEST_USER, approval.id);
+
+      expect(first).toMatchObject({ kind: 'failed', code: 'internal' });
+      expect(repos().approvals.get(TEST_USER, approval.id)?.status).toBe('valid');
+      expect(repos().intents.get(key)).toBeUndefined();
+      expect(h.calls).toHaveLength(0);
+      expect(h.state()).toBe('APPROVED');
+
+      h.scenario('BOOK_SUCCESS');
+      const second = await h.executor.execute(TEST_USER, approval.id);
+
+      expect(second).toMatchObject({ kind: 'booked', replayed: false });
+      expect(repos().approvals.get(TEST_USER, approval.id)?.status).toBe('consumed');
+      expect(repos().intents.get(key)).toMatchObject({ status: 'succeeded', attempts: 1 });
+      expect(h.providerBookings()).toHaveLength(1);
+      expect(h.state()).toBe('DONE');
+    });
+
+    it('unexpected failure after the approval is spent → failed outcome and task state FAILED, not stuck', async () => {
+      await h.close();
+      h = await startEngineHarness({ wrapIntents: crashAfterFirstFail });
+      provider = await findProvider(h);
+      const approval = approve(h, await proposeBooking(h, provider));
+      h.scenario('BOOK_SLOT_TAKEN');
+
+      const outcome = await h.executor.execute(TEST_USER, approval.id);
+
+      expect(outcome).toMatchObject({ kind: 'failed', code: 'internal' });
+      expect(repos().intents.get(idempotencyKey('book', approval.id))?.status).toBe('failed');
+      expect(repos().approvals.get(TEST_USER, approval.id)?.status).toBe('consumed');
+      expect(h.state()).toBe('FAILED');
+      expect(h.providerBookings()).toHaveLength(0);
     });
   });
 
