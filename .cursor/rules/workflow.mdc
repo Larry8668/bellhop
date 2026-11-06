@@ -8,22 +8,27 @@ alwaysApply: true
 ## Plan strong, execute small
 
 - The parent agent (the strongest model in the session) owns planning: reads `docs/bellhopper-plan.md` and `TODO.md`, breaks a phase into tasks small enough to describe in one paragraph, and verifies results.
-- Implementation and test writing are **always** delegated to subagents on smaller models: `implementer` for code, `test-writer` for tests, built-in `explore` for codebase questions. Give each a self-contained brief: task, plan sections to read, files in scope, acceptance criteria. Run independent tasks in parallel.
-- The parent may make small fixes itself (a few lines, a config value, a doc edit). Anything larger goes back to a subagent.
-- If a subagent reports a conflict with the plan, resolve it with the user before continuing; do not let the subagent guess.
-- Alternative for isolated work: Cursor CLI headless, e.g. `agent -p --trust --model composer-2.5 -w "<brief>"` runs in its own worktree.
+- Implementation and test writing are **always** delegated to smaller models. Default channel is the headless CLI: `scripts/delegate.sh <role> <model> "<brief>"`. Roles are `.cursor/agents/*.md`. Give each a self-contained brief: task, plan sections to read, files in scope, acceptance criteria. Run independent tasks in parallel (background shell jobs).
+- Pick the model by complexity, not by habit:
+  - `composer-2.5` or `grok-4.7-medium` — mechanical, well-specified: routes, schemas, wrappers, UI components, tests.
+  - `claude-sonnet-5-thinking-high` — multi-file logic with edge cases: executors, context layer, event processor.
+  - `claude-opus-5-5-medium` — core guarantees: approvals, idempotency, recovery, state machine.
+- The parent may make small fixes itself (a few lines, a config value, a doc edit). Anything larger goes back to a delegate.
+- If a delegate reports a conflict with the plan, resolve it with the user before continuing; do not let it guess.
+- IDE Task-tool subagents (same names) are the fallback when the CLI is unavailable.
 
-## Review panel before every PR
+## Review panel before every PR — keep it brief
 
 1. Finish the task on a branch; tests green.
-2. Launch `review-quality`, `review-security`, and `review-correctness` **in parallel, in the background**, each with the branch name, base (`main`), and the task description.
-3. Consolidate findings. Fix every BLOCKER (delegate to `implementer` if non-trivial). MAJORs are fixed or explicitly deferred to `TODO.md` with a reason.
-4. If blockers were fixed, re-run only the reviewer(s) that raised them.
-5. Open the PR with `gh pr create`; the PR body includes the three verdicts and a list of deferred MAJORs.
+2. `scripts/review-panel.sh "<task description>"` runs `review-quality`, `review-security`, `review-correctness` in parallel and prints one consolidated report. Reviewers are capped (5 blockers / 5 majors / 3 minors each) and told to finish in minutes.
+3. Fix every BLOCKER (delegate if non-trivial). MAJORs are fixed or deferred to `TODO.md` with a reason. MINORs are optional.
+4. If blockers were fixed, re-run only the reviewer(s) that raised them: `scripts/delegate.sh review-security <model> "<brief>" --readonly`.
+5. Open the PR with `gh pr create`; the PR body includes the three verdicts and deferred MAJORs.
+6. For tiny PRs (docs, config, < ~30 lines) one reviewer is enough; say which one in the PR body.
 
-## Git
+## Git — PRs only
 
-- Never commit or push to `main`. Branch per task: `feat/`, `fix/`, `docs/`, `chore/`, `test/`. The `pre-push` hook enforces this locally (GitHub branch protection needs a paid plan for private repos).
+- **Nothing reaches `main` except via a pull request.** Never commit, push, or merge locally into `main`. Branch per task: `feat/`, `fix/`, `docs/`, `chore/`, `test/`. The `pre-push` hook enforces this locally (GitHub branch protection needs a paid plan for private repos); the rule holds even where the hook doesn't run.
 - Conventional commits (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `refactor:`), enforced by commitlint. Small, meaningful commits.
 - Merge with `gh pr merge --rebase --delete-branch` to keep the linear history of small commits.
 

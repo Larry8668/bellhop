@@ -14,6 +14,7 @@ Rules:
 - Tests run offline: scripted model via `MockLanguageModelV4`, provider service on an ephemeral port, seeded RNG, injected clock. No Ollama, no network.
 - Name tests so the EVALS reporter can map them to scenario ids (e.g. `S09 timeout after success`, `H04 re-hold price higher`).
 - Do not modify production code. If a test cannot be written without a production change, report exactly what is missing.
+- Never commit, never push, never touch `main`. The parent owns git; everything reaches `main` via PR only.
 - Run the tests; include the output in your report.
 
 Report back with: test files added, scenario ids covered, pass/fail output, production gaps found.
