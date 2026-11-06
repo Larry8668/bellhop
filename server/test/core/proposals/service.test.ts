@@ -110,8 +110,24 @@ describe('proposal service', () => {
     expect(h.calls).toHaveLength(0);
   });
 
+  it('a new proposal after DONE starts a new errand: DONE → GATHERING → PROPOSED', async () => {
+    await bookThroughExecutor(h, provider);
+    expect(h.state()).toBe('DONE');
+    const result = await h.proposals.proposeBooking(TEST_USER, {
+      provider_id: provider.id,
+      slot: provider.slots[1]!,
+    });
+    expect(result.ok).toBe(true);
+    expect(h.state()).toBe('PROPOSED');
+    const path = h.trace.events
+      .filter((e) => e.type === 'state_transition')
+      .map((e) => (e as { to: string }).to);
+    expect(path.slice(-2)).toEqual(['GATHERING', 'PROPOSED']);
+  });
+
   it('refuses to propose from a state that cannot reach PROPOSED, before holding anything', async () => {
     await bookThroughExecutor(h, provider);
+    h.stateMachine.transition(TEST_USER, 'GATHERING', 'new errand');
     h.stateMachine.transition(TEST_USER, 'SEARCHING');
     const result = await h.proposals.proposeBooking(TEST_USER, {
       provider_id: provider.id,

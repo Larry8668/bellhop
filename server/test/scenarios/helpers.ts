@@ -42,7 +42,6 @@ export async function bookThroughEngine(
   h.scenario('BOOK_SUCCESS');
   const outcome = await h.engine.executor.execute(h.userId, approval.id);
   if (outcome.kind !== 'booked') throw new Error(`setup booking failed: ${outcome.kind}`);
-  h.engine.stateMachine.transition(h.userId, 'GATHERING', 'new errand');
   h.providerCalls().length = 0;
   return outcome.booking.booking_id;
 }

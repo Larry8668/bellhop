@@ -66,7 +66,8 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 - [x] Per-user promise queue (one instance shared by API and MCP)
 - [x] EVALS reporter (`task.meta.expected/actual`), `createCoreEngine` facade, `x-request-id` server → provider
 - [x] Scenarios 6, 9–11, 13–16, H1–H10 (22 rows in `EVALS.md`)
-- [ ] Gate review panel on the Phase 2 → `main` PR
+- [ ] Gate review panel on the Phase 2 → `main` PR — run; blockers being fixed (see LOGS 2026-11-06)
+- [ ] Gate deferrals: move the identical `request-id` middleware (server/provider) into `@bellhop/shared`; `approvals.approveOrReplay` in core so the HTTP route stops holding replay logic; per-user proposal rate limit (hold exhaustion)
 - [ ] Provider: admin knob for hold-price drift direction (H4/H5 currently pinned by RNG seed)
 - [ ] Provider: expose `idempotency_key` per booking in `/__admin/state` so invariant "one booking per key" can be asserted exactly
 - [ ] MCP session trace: one `mcp_<requestId>` file per session; switch to per-turn run ids in Phase 3
