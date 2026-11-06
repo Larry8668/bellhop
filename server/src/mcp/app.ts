@@ -125,7 +125,7 @@ export function createMcpApp({
     const runId = `mcp_${randomUUID()}`;
     mcpLog.debug({ requestId, runId, userId: principal.userId }, 'mcp session started');
     const trace = createTraceWriter({ dir: tracesDir, runId, clock });
-    const engine = createCoreEngine({ db, clock, providerClient, trace, logger, limits });
+    const engine = createCoreEngine({ db, clock, providerClient, trace, logger, limits, requestId });
     const server = createMcpServer({ providerClient, principal, logger, requestId, engine, queue, webOrigin });
     // The callback runs during a later handleRequest, after `session` exists.
     const transport = new StreamableHTTPTransport({

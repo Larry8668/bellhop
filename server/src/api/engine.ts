@@ -33,7 +33,6 @@ export function engineFor(c: Context, deps: EngineForDeps): CoreEngine {
     runId,
     clock: deps.clock,
   });
-  // TODO(gate): pass requestId into createCoreEngine once CoreEngineDeps grows the field.
   return createCoreEngine({
     db: deps.db,
     clock: deps.clock,
@@ -41,5 +40,6 @@ export function engineFor(c: Context, deps: EngineForDeps): CoreEngine {
     trace,
     logger: deps.logger,
     limits: deps.limits,
+    requestId,
   });
 }
