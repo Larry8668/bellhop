@@ -80,7 +80,6 @@ export function Proposals(): React.ReactElement {
   >({});
 
   const [formProviderId, setFormProviderId] = useState('');
-  const [formProviderName, setFormProviderName] = useState('');
   const [formService, setFormService] = useState<string>(KNOWN_BOOKING_SERVICES[0]);
   const [formServiceOther, setFormServiceOther] = useState('');
   const [formSlotStart, setFormSlotStart] = useState('');
@@ -168,8 +167,8 @@ export function Proposals(): React.ReactElement {
     setFormBusy(true);
     const service =
       formService === '__other__' ? formServiceOther.trim() : formService;
-    if (!formProviderId.trim() || !formProviderName.trim() || !service) {
-      setActionError('Provider id, provider name, and service are required.');
+    if (!formProviderId.trim() || !service) {
+      setActionError('Provider id and service are required.');
       setFormBusy(false);
       return;
     }
@@ -182,7 +181,6 @@ export function Proposals(): React.ReactElement {
       await api.createProposal({
         action: 'book',
         provider_id: formProviderId.trim(),
-        provider_name: formProviderName.trim(),
         service,
         slot: {
           start: new Date(formSlotStart).toISOString(),
@@ -191,7 +189,6 @@ export function Proposals(): React.ReactElement {
       });
       await load();
       setFormProviderId('');
-      setFormProviderName('');
       setFormServiceOther('');
     } catch (err) {
       log.error({ err }, 'create proposal failed');
@@ -265,26 +262,15 @@ export function Proposals(): React.ReactElement {
         <section className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-4">
           <h2 className="text-sm font-semibold text-zinc-900">New proposal (dev)</h2>
           <form className="mt-3 space-y-3" onSubmit={(e) => void handleCreateDevProposal(e)}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-1 text-xs text-zinc-600">
-                Provider id
-                <input
-                  className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900"
-                  value={formProviderId}
-                  onChange={(e) => setFormProviderId(e.target.value)}
-                  placeholder="prov-123"
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-xs text-zinc-600">
-                Provider name
-                <input
-                  className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900"
-                  value={formProviderName}
-                  onChange={(e) => setFormProviderName(e.target.value)}
-                  placeholder="Example Co."
-                />
-              </label>
-            </div>
+            <label className="flex flex-col gap-1 text-xs text-zinc-600">
+              Provider id
+              <input
+                className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900"
+                value={formProviderId}
+                onChange={(e) => setFormProviderId(e.target.value)}
+                placeholder="prov-123"
+              />
+            </label>
             <label className="flex flex-col gap-1 text-xs text-zinc-600">
               Service
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

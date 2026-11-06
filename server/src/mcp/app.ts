@@ -114,9 +114,17 @@ export function createMcpApp({
     );
   }
 
-  /** Builds the `McpServer` + transport for a brand-new session, connects them, and registers the session once the SDK assigns it an id. */
+  /**
+   * Builds the `McpServer` + transport for a brand-new session, connects
+   * them, and registers the session once the SDK assigns it an id.
+   * `requestId` (the propagated `x-request-id`) is only ever logged below —
+   * the trace file name is always a server-minted id, never a client-
+   * controlled header value.
+   */
   async function startSession(principal: Principal, requestId: string): Promise<McpSession> {
-    const trace = createTraceWriter({ dir: tracesDir, runId: `mcp_${requestId}`, clock });
+    const runId = `mcp_${randomUUID()}`;
+    mcpLog.debug({ requestId, runId, userId: principal.userId }, 'mcp session started');
+    const trace = createTraceWriter({ dir: tracesDir, runId, clock });
     const engine = createCoreEngine({ db, clock, providerClient, trace, logger, limits });
     const server = createMcpServer({ providerClient, principal, logger, requestId, engine, queue, webOrigin });
     // The callback runs during a later handleRequest, after `session` exists.

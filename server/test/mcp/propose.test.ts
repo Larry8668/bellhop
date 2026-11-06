@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ElicitResult } from '@modelcontextprotocol/sdk/types.js';
 import { WEB_ORIGIN } from '../api/test-helpers.js';
 import { connectMcpClient } from './helpers.js';
@@ -43,7 +43,6 @@ describe('MCP propose tools: booking approved via elicitation (scenario: happy p
       name: 'propose_booking',
       arguments: {
         provider_id: provider.id,
-        provider_name: provider.name,
         service: provider.service,
         slot: provider.slots[0],
       },
@@ -84,7 +83,6 @@ describe('MCP propose tools: booking declined via elicitation', () => {
       name: 'propose_booking',
       arguments: {
         provider_id: provider.id,
-        provider_name: provider.name,
         service: provider.service,
         slot: provider.slots[0],
       },
@@ -115,7 +113,6 @@ describe('MCP propose tools: client without elicitation support', () => {
       name: 'propose_booking',
       arguments: {
         provider_id: provider.id,
-        provider_name: provider.name,
         service: provider.service,
         slot: provider.slots[0],
       },
@@ -147,7 +144,6 @@ describe('MCP propose tools: the model can never supply user_id / approval_id / 
       name: 'propose_booking',
       arguments: {
         provider_id: provider.id,
-        provider_name: provider.name,
         service: provider.service,
         slot: provider.slots[0],
         user_id: 'victim',
@@ -195,7 +191,6 @@ describe('MCP propose tools: the model can never supply user_id / approval_id / 
       name: 'propose_booking',
       arguments: {
         provider_id: provider.id,
-        provider_name: provider.name,
         service: provider.service,
         slot: provider.slots[0],
       },
@@ -211,6 +206,58 @@ describe('MCP propose tools: the model can never supply user_id / approval_id / 
     expect(result.isError).toBeFalsy();
     const structured = result.structuredContent as { proposals: unknown[] };
     expect(structured.proposals).toHaveLength(0);
+  });
+});
+
+describe('MCP propose tools: elicitation in flight never holds the user queue (gate fix item 3)', () => {
+  it('list_proposals completes immediately while a propose_booking call is still waiting on elicitInput', async () => {
+    ctx = await setupMcpProposeTest();
+    const { apiKey } = await createApiKeyUser(ctx.apiApp);
+
+    let elicitationStarted = false;
+    let resolveElicitation: ((result: ElicitResult) => void) | undefined;
+    const elicitationPromise = new Promise<ElicitResult>((resolve) => {
+      resolveElicitation = resolve;
+    });
+
+    const { client } = await connectMcpClient(
+      ctx.server.baseUrl,
+      { authorization: `Bearer ${apiKey}` },
+      {
+        elicitation: () => {
+          elicitationStarted = true;
+          return elicitationPromise;
+        },
+      },
+    );
+    const userId = await whoami(client);
+    const provider = await findBookableProvider(ctx.providerClient, ctx.tp.clock, userId);
+
+    const proposePromise = client.callTool({
+      name: 'propose_booking',
+      arguments: { provider_id: provider.id, service: provider.service, slot: provider.slots[0] },
+    });
+
+    // Wait until the server has actually called elicitInput (proposal
+    // created, its queue turn released) before proving the queue is free.
+    await vi.waitFor(() => {
+      if (!elicitationStarted) throw new Error('elicitation has not started yet');
+    });
+
+    const listResult = (await client.callTool({ name: 'list_proposals', arguments: {} })) as unknown as {
+      isError?: boolean;
+      structuredContent: { proposals: Array<{ id: string; status: string }> };
+    };
+    expect(listResult.isError).toBeFalsy();
+    expect(listResult.structuredContent.proposals).toHaveLength(1);
+    expect(listResult.structuredContent.proposals[0]?.status).toBe('pending');
+
+    resolveElicitation?.({ action: 'accept', content: { confirm: true } });
+    const proposeResult = await proposePromise;
+    expect(proposeResult.isError).toBeFalsy();
+
+    const bookings = ctx.tp.engine.admin.state().bookings.filter((b) => b.user_id === userId);
+    expect(bookings).toHaveLength(1);
   });
 });
 
@@ -230,7 +277,6 @@ describe('MCP propose tools: provider error on hold', () => {
       name: 'propose_booking',
       arguments: {
         provider_id: provider.id,
-        provider_name: provider.name,
         service: provider.service,
         slot: bogusSlot,
       },

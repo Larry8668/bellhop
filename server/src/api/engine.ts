@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import type { Context } from 'hono';
 import type { Clock } from '@bellhop/shared/clock';
@@ -18,15 +19,21 @@ export interface EngineForDeps {
 }
 
 /**
- * One core engine per HTTP request, scoped to `api_<requestId>` trace files (plan §13).
+ * One core engine per HTTP request, scoped to a server-minted `api_<uuid>`
+ * trace file (plan §13). The trace file name must never be derived from a
+ * client-controlled header: `x-request-id` is only ever logged for
+ * correlation, never used to pick a path on disk.
  */
 export function engineFor(c: Context, deps: EngineForDeps): CoreEngine {
   const requestId = getRequestId(c);
+  const runId = `api_${randomUUID()}`;
+  deps.logger.debug({ requestId, runId }, 'engine created for request');
   const trace = createTraceWriter({
     dir: deps.tracesDir,
-    runId: `api_${requestId}`,
+    runId,
     clock: deps.clock,
   });
+  // TODO(gate): pass requestId into createCoreEngine once CoreEngineDeps grows the field.
   return createCoreEngine({
     db: deps.db,
     clock: deps.clock,

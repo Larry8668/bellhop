@@ -71,11 +71,11 @@ export type TaskState = {
   budget?: unknown;
 } & Record<string, unknown>;
 
+/** No `provider_name`: the server derives the display name rather than trusting client-supplied text (plan §7 gate fix item 5). */
 export type CreateProposalInput =
   | {
       action: 'book';
       provider_id: string;
-      provider_name: string;
       service: string;
       slot: { start: string; end: string };
     }

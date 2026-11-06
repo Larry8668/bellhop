@@ -13,7 +13,7 @@ import { createApiApp } from '../../src/api/app.js';
 import { createProviderClient } from '../../src/provider-client/index.js';
 import { createMcpApp } from '../../src/mcp/index.js';
 import { DEFAULT_MCP_TEST_LIMITS } from './limits.js';
-import { signUpAndSignIn, WEB_ORIGIN, type SignedUpUser } from '../api/test-helpers.js';
+import { createApiKeyUser as createApiKeyUserHelper, WEB_ORIGIN } from '../api/test-helpers.js';
 import { startStubProvider, type StubProvider, type StubProviderRoute } from '../helpers/stub-provider.js';
 import { startServer, type RunningServer } from './helpers.js';
 
@@ -94,18 +94,4 @@ export async function setupMcpTest(
 }
 
 /** Signs up a fresh user through the real HTTP routes and mints an API key for it. */
-export async function createApiKeyUser(
-  apiApp: ReturnType<typeof createApiApp>,
-): Promise<{ user: SignedUpUser; apiKey: string }> {
-  const user = await signUpAndSignIn(apiApp);
-  const createRes = await apiApp.request('/api/keys', {
-    method: 'POST',
-    headers: { cookie: user.cookie, 'content-type': 'application/json' },
-    body: JSON.stringify({ name: 'mcp test key' }),
-  });
-  if (createRes.status !== 201) {
-    throw new Error(`api key creation failed: ${createRes.status} ${await createRes.text()}`);
-  }
-  const { key } = (await createRes.json()) as { key: string };
-  return { user, apiKey: key };
-}
+export const createApiKeyUser = createApiKeyUserHelper;
