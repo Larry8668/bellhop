@@ -7,7 +7,7 @@ import { migrateAuth } from '../../src/auth/migrate.js';
 import { createApiApp } from '../../src/api/app.js';
 import { createProviderClient } from '../../src/provider-client/index.js';
 import { createMcpApp } from '../../src/mcp/index.js';
-import { signUpAndSignIn, type SignedUpUser } from '../api/test-helpers.js';
+import { signUpAndSignIn, WEB_ORIGIN, type SignedUpUser } from '../api/test-helpers.js';
 import { startStubProvider, type StubProvider, type StubProviderRoute } from '../helpers/stub-provider.js';
 import { startServer, type RunningServer } from './helpers.js';
 
@@ -42,7 +42,7 @@ export async function setupMcpTest(
   const stub = await startStubProvider(routes);
   const providerClient = createProviderClient({ baseUrl: stub.url, timeoutMs: 5000, logger });
 
-  const apiApp = createApiApp({ auth, logger });
+  const apiApp = createApiApp({ auth, logger, providerClient, webOrigin: WEB_ORIGIN });
   const mcpApp = createMcpApp({ auth, providerClient, logger });
 
   const combined = new Hono();
