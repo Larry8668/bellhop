@@ -71,6 +71,11 @@ describe('canTransition', () => {
     }
   });
 
+  it('allows GATHERING -> PROPOSED for cancel/reschedule, which skip the search', () => {
+    expect(canTransition('GATHERING', 'PROPOSED')).toBe(true);
+    expect(canTransition('GATHERING', 'APPROVED')).toBe(false);
+  });
+
   it('allows DONE/FAILED/LIMIT_EXCEEDED back to GATHERING for a new errand', () => {
     expect(canTransition('DONE', 'GATHERING')).toBe(true);
     expect(canTransition('FAILED', 'GATHERING')).toBe(true);
