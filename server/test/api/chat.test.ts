@@ -16,7 +16,6 @@ import { createEventBus, type EventBus } from '../../src/events/bus.js';
 import { scriptedModel, textStep } from '../../src/harness/scripted-model.js';
 import type { ProviderClient } from '../../src/provider-client/client.js';
 import {
-  runTurn as placeholderRunTurn,
   type HarnessMemory,
   type RunTurn,
   type TurnEvent,
@@ -159,10 +158,6 @@ async function collectSse(res: Response, until: (buf: string) => boolean): Promi
 }
 
 describe('chat API', () => {
-  it('placeholder runTurn rejects until the harness branch is merged', async () => {
-    await expect(placeholderRunTurn(undefined as never, { userId: 'u', text: 'hi' })).rejects.toThrow(/not wired/);
-  });
-
   it('send persists the assistant reply from the scripted model and lists messages oldest first', async () => {
     const { app, bus, memory } = await setupChat();
     const selectForContext = vi.spyOn(memory, 'selectForContext');
