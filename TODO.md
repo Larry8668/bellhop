@@ -76,13 +76,13 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 
 ## Phase 3 — Harness
 
-- [ ] ToolLoopAgent wiring, tool wrappers (user_id injection, counters, zod)
-- [ ] `propose_*` validates against task_state constraints
-- [ ] `prepareStep` context layer: builder, budget, tool-result clearing, context_log
-- [ ] Limits: stopWhen, tool counter, AbortSignal.timeout; user-facing exit messages
-- [ ] Trace via onStepFinish
-- [ ] Scripted-model helpers
-- [ ] Scenarios 1–5, 23–28; commit first raw trace
+- [x] ToolLoopAgent wiring, tool wrappers (user_id injection, counters, zod)
+- [x] `propose_*` validates against task_state constraints
+- [x] `prepareStep` context layer: builder, budget, tool-result clearing, context_log
+- [x] Limits: stopWhen, tool counter, AbortSignal.timeout; user-facing exit messages
+- [x] Trace via onStepFinish
+- [x] Scripted-model helpers
+- [x] Scenarios 1–5, 23–28; commit first raw trace
 
 ## Phase 4 — Memory
 
