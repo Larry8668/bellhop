@@ -4,7 +4,7 @@
 
 Chat-based agent that arranges home-service errands (plumber, electrician, AC servicing…). It clarifies missing details, compares providers, asks for explicit approval before anything consequential, and recovers safely when tools fail. Everything runs locally against a mock provider service.
 
-Status: **Phase 0 (scaffold)**. See `TODO.md` for what's next and `LOGS.md` for decisions.
+Status: **Phase 1 (provider service) done**, plus the auth/API/web/MCP shells pulled forward as test surfaces. The agent itself (approvals, harness, memory) lands in Phases 2–5. See `TODO.md` for what's next and `LOGS.md` for decisions.
 
 ## Prerequisites
 
@@ -15,10 +15,10 @@ Status: **Phase 0 (scaffold)**. See `TODO.md` for what's next and `LOGS.md` for 
 ## Layout
 
 ```
-shared/     logger, clock, rng (used by provider and server)
+shared/     logger, clock, rng, and the tool contracts (zod) shared by provider and server
 provider/   mock provider service: the 8 tool contracts, seeded randomness, admin endpoints
-server/     Bellhop backend: harness, core (approvals, idempotency, recovery), memory, API, MCP
-web/        React UI (Phase 6)
+server/     Bellhop backend: auth, API, MCP, provider client; harness + core land in Phases 2–3
+web/        React + Vite UI (login, chat, profile, bookings)
 docs/       plan and transcripts
 traces/     raw JSONL traces (one committed timeout-after-success run)
 ```
@@ -26,15 +26,45 @@ traces/     raw JSONL traces (one committed timeout-after-success run)
 ## Install
 
 ```bash
-npm install
+npm install                   # also builds shared/ and provider/ (prepare hook)
 ```
 
-## Run (will be filled in as phases land)
+## Run
+
+Three processes, three terminals (Docker Compose arrives in Phase 8):
+
+```bash
+# 1. mock provider on :4010, admin routes on
+PROVIDER_ADMIN=1 npm run start -w provider
+
+# 2. backend on :4000 (creates ./server/data/bellhop.db)
+BETTER_AUTH_SECRET=$(openssl rand -base64 32) npm run start -w server
+npm run seed:demo -w server   # once: demo@bellhop.local / demo-pass-123 (same BETTER_AUTH_SECRET + DB_PATH)
+
+# 3. web on :5173 (proxies /api to :4000)
+npm run dev -w web
+```
+
+Sign in at http://localhost:5173 with the demo account. Profile → "Create key" gives an API key for MCP.
+
+Env (all optional; defaults in `server/src/config.ts`, `provider/src/config.ts`): `MODEL`, `OLLAMA_BASE_URL`, `PROVIDER_URL`, `PROVIDER_TIMEOUT_MS`, `DB_PATH`, `SERVER_PORT`, `WEB_ORIGIN`, `BETTER_AUTH_SECRET`; provider `PORT`, `SEED`, `PROVIDER_ADMIN`, `TIMEOUT_DELAY_MS`, `HOLD_PRICE_DRIFT_PROB`.
+
+### MCP
+
+Endpoint: `http://localhost:4000/mcp` (Streamable HTTP, stateless). Auth: `Authorization: Bearer <api key>` or `x-api-key`. Tools today: `search_providers`, `get_provider` (reviews returned fenced as untrusted text), `list_bookings`, `whoami`. `propose_*` + approval elicitation arrive with Phase 2/7.
+
+Cursor (`.cursor/mcp.json`) or Claude Code:
+
+```json
+{ "mcpServers": { "bellhop": { "url": "http://localhost:4000/mcp", "headers": { "Authorization": "Bearer <api key>" } } } }
+```
+
+### Checks
 
 ```bash
 npm run typecheck
 npm run lint
-npm test                      # offline evals; regenerates EVALS.md from Phase 2
+npm test                      # offline: scripted model + mock provider on an ephemeral port
 ```
 
 Ollama smoke test (needs Ollama running):
@@ -45,7 +75,22 @@ npm run smoke:ollama -w server
 
 ## Forcing scenarios
 
-The provider service exposes `/__admin` routes (enabled with `PROVIDER_ADMIN=1`) to force outcomes such as `TIMEOUT_BOOKED`, `PRICE_CHANGES_ON_HOLD`, `SLOT_TAKEN`, advance the provider clock, or cancel a booking to trigger the proactive flow. Documented in Phase 1.
+The provider exposes `/__admin` routes when `PROVIDER_ADMIN=1`:
+
+```bash
+# queue forced outcomes (FIFO, consumed by the next matching tool call)
+curl -X POST localhost:4010/__admin/scenario -H 'content-type: application/json' \
+  -d '{"outcomes":["PRICE_CHANGES_ON_HOLD","TIMEOUT_BOOKED"],"timeout_delay_ms":8000}'
+# BOOK_SUCCESS BOOK_SLOT_TAKEN TIMEOUT_BOOKED TIMEOUT_NOT_BOOKED HOLD_EXPIRED PRICE_CHANGES_ON_HOLD
+# CANCEL_503_ONCE CANCEL_OK RESCHEDULE_CONFLICT SEARCH_ERROR RANDOM (clears the queue)
+
+curl -X POST localhost:4010/__admin/clock -H 'content-type: application/json' -d '{"advance_ms":660000}'   # expire holds
+curl -X POST localhost:4010/__admin/cancel-booking/bk_1      # provider-side cancellation (proactive flow, Phase 5)
+curl -X POST localhost:4010/__admin/reset -H 'content-type: application/json' -d '{"seed":7}'
+curl localhost:4010/__admin/state                            # holds, bookings, idempotency map, pending scenarios
+```
+
+Without forced scenarios the engine follows the spec's odds: `book` succeeds 70%, `slot_taken` 15%, times out 15% (half of those actually booked); `cancel` fails once with 503 then succeeds; hold prices drift 15% of the time. Tool calls need an `x-user-id` header (the backend sets it from the session; it never comes from the model).
 
 ## Deliverables
 

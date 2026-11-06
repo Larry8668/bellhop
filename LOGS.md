@@ -52,5 +52,18 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 - `trace/types.ts` uses a distributive `Omit` so `emit()` keeps the discriminated union narrow.
 - 20 tests across the three workspaces; lint/typecheck clean from root.
 
+**Phase 1 — provider service + test surfaces (PR #15, stacked from #8–#14)**
+- Contracts first: the 8 tool input/output schemas, error codes → HTTP status map, admin schemas and the `TOOL_CONTRACTS` registry live in `@bellhop/shared/contracts`. Provider routes, the backend client and the MCP tools are all generated from the same registry, so a contract change fails typecheck in every consumer.
+- `user_id` travels to the provider in an `x-user-id` header on every tool call (the fixed contracts have no user field except `list_bookings`); holds and bookings are owned by that user, cross-user reads return not_booked/not_found rather than leaking.
+- Simulated timeout = the engine decides (and may write the booking), the HTTP layer sleeps `TIMEOUT_DELAY_MS` then answers 504. Backend timeout (`PROVIDER_TIMEOUT_MS` 5 s) < provider delay (8 s) in dev; tests set 50 ms / 100 ms via `startTestProvider`.
+- Idempotency records only definitive outcomes (success, slot_taken, slot_conflict). 503s and not-booked timeouts are not recorded, so a retry with the same key proceeds; a booked timeout is recorded, so the retry replays the booking.
+- Scenario queue is FIFO per tool: `take(tool)` consumes the first queued outcome that applies to that tool; `RANDOM` clears. Lets a test queue `PRICE_CHANGES_ON_HOLD, TIMEOUT_BOOKED` and drive hold then book.
+- Pulled Better Auth, the API shell, the web scaffold and the read-only MCP route forward from Phases 6/7 on request, so there is something to click and an MCP surface to point Cursor/Claude at. The agent, approvals and `propose_*` tools remain Phase 2–3 work.
+- Verified at install time (plan's "re-verify APIs" rule): Better Auth 1.7.18 accepts a raw better-sqlite3 instance and `(await auth.$context).runMigrations()`; the API-key plugin is a separate `@better-auth/api-key` package in 1.7; MCP SDK is 1.32 (there is no v2); `@hono/mcp` 0.3.5 provides `StreamableHTTPTransport` that takes a Hono context.
+- Web: the delegate pulled pino into the browser via `@bellhop/shared/logger` plus a `process` shim; replaced with a 30-line browser logger with the same `(fields, msg)` shape. Web pins Vite 8 so Vitest 5 and the plugins resolve one Vite (removed an `as any` on the plugin array).
+- Stacked flow at 4 parallel worktrees worked; two lockfile conflicts resolved by taking the base lockfile and re-running `npm install`. `gh pr merge --delete-branch` from inside a worktree fails to delete the local branch (the base is checked out elsewhere) — merge from the main checkout by PR number and delete remote branches explicitly.
+- Delegate timings this phase: composer-2.5 93 s (contracts), 166 s (client), 477 s (web); claude-sonnet-5-thinking-high 1084 s (engine), 1236 s (auth), 932 s (http), 840 s (root), 999 s (mcp).
+- Live check: provider + server + web + `seed:demo`; sign-in, API key, `/api/me` via cookie and key, booking visible in `/api/bookings`, MCP `tools/list` + `search_providers` + `list_bookings` through the real provider with a forged `user_id` argument ignored; 401 without auth.
+
 **Next**
-- Phase 1: provider engine + 8 tool routes + admin routes; `server/src/provider-client`.
+- Phase 2: core engine (schema, state machine, proposals/approvals with hash + CAS, intents, executors, recovery, per-user queue, EVALS reporter). Gate review at the end.
