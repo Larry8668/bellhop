@@ -14,7 +14,7 @@ import { createProviderClient, type ProviderClient } from '../../src/provider-cl
 import { createMcpApp } from '../../src/mcp/index.js';
 import { createUserQueue } from '../../src/core/queue/user-queue.js';
 import { DEFAULT_MCP_TEST_LIMITS } from './limits.js';
-import { WEB_ORIGIN } from '../api/test-helpers.js';
+import { apiWiring, WEB_ORIGIN } from '../api/test-helpers.js';
 import { startServer, type RunningServer } from './helpers.js';
 
 export interface McpProposeTestContext {
@@ -49,6 +49,7 @@ export async function setupMcpProposeTest(): Promise<McpProposeTestContext> {
   const providerClient = createProviderClient({ baseUrl: tp.url, timeoutMs: 2000, logger });
   const queue = createUserQueue({ logger });
   const tracesDir = mkdtempSync(path.join(os.tmpdir(), 'bellhop-mcp-propose-trace-'));
+  const wiring = apiWiring();
 
   const apiApp = createApiApp({
     auth,
@@ -60,6 +61,7 @@ export async function setupMcpProposeTest(): Promise<McpProposeTestContext> {
     limits: DEFAULT_MCP_TEST_LIMITS,
     tracesDir,
     queue,
+    ...wiring,
   });
   const mcpApp = createMcpApp({
     auth,
@@ -71,6 +73,7 @@ export async function setupMcpProposeTest(): Promise<McpProposeTestContext> {
     tracesDir,
     queue,
     webOrigin: WEB_ORIGIN,
+    memory: wiring.memory,
   });
 
   const combined = new Hono();

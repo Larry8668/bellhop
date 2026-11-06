@@ -20,6 +20,8 @@ export interface MessagesRepo {
   append(message: Message): void;
   /** Most recent `limit` messages for the user, in chronological order. */
   listRecent(userId: string, limit: number): Message[];
+  /** Every message for the user, oldest first. `rowid` breaks ties on `created_at`. */
+  listAll(userId: string): Message[];
 }
 
 export function createMessagesRepo(db: Database.Database): MessagesRepo {
@@ -29,6 +31,9 @@ export function createMessagesRepo(db: Database.Database): MessagesRepo {
   `);
   const listRecentStmt = db.prepare(
     'SELECT * FROM messages WHERE user_id = ? ORDER BY created_at DESC LIMIT ?',
+  );
+  const listAllStmt = db.prepare(
+    'SELECT * FROM messages WHERE user_id = ? ORDER BY created_at ASC, rowid ASC',
   );
 
   return {
@@ -47,6 +52,11 @@ export function createMessagesRepo(db: Database.Database): MessagesRepo {
     listRecent(userId: string, limit: number): Message[] {
       const rows = listRecentStmt.all(userId, limit) as MessageRow[];
       return rows.map(toDomain).reverse();
+    },
+
+    listAll(userId: string): Message[] {
+      const rows = listAllStmt.all(userId) as MessageRow[];
+      return rows.map(toDomain);
     },
   };
 }

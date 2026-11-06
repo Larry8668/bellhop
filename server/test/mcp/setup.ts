@@ -13,7 +13,8 @@ import { createApiApp } from '../../src/api/app.js';
 import { createProviderClient } from '../../src/provider-client/index.js';
 import { createMcpApp } from '../../src/mcp/index.js';
 import { DEFAULT_MCP_TEST_LIMITS } from './limits.js';
-import { createApiKeyUser as createApiKeyUserHelper, WEB_ORIGIN } from '../api/test-helpers.js';
+import { apiWiring, createApiKeyUser as createApiKeyUserHelper, WEB_ORIGIN } from '../api/test-helpers.js';
+import type { HarnessMemory } from '../../src/wiring/deps.js';
 import { startStubProvider, type StubProvider, type StubProviderRoute } from '../helpers/stub-provider.js';
 import { startServer, type RunningServer } from './helpers.js';
 
@@ -35,6 +36,7 @@ export interface McpTestContext {
  */
 export async function setupMcpTest(
   routes: Partial<Record<ToolName, StubProviderRoute>>,
+  opts: { memory?: HarnessMemory } = {},
 ): Promise<McpTestContext> {
   const logger = createLogger({ name: 'test', level: 'silent' });
   const db = openDatabase(':memory:', { logger });
@@ -50,6 +52,7 @@ export async function setupMcpTest(
   const providerClient = createProviderClient({ baseUrl: stub.url, timeoutMs: 5000, logger });
   const tracesDir = mkdtempSync(path.join(tmpdir(), 'bellhop-mcp-test-'));
   const queue = createUserQueue({ logger });
+  const wiring = apiWiring(opts.memory === undefined ? {} : { memory: opts.memory });
 
   const apiApp = createApiApp({
     auth,
@@ -61,6 +64,7 @@ export async function setupMcpTest(
     limits: DEFAULT_MCP_TEST_LIMITS,
     tracesDir,
     queue,
+    ...wiring,
   });
   const mcpApp = createMcpApp({
     auth,
@@ -72,6 +76,7 @@ export async function setupMcpTest(
     tracesDir,
     queue,
     webOrigin: WEB_ORIGIN,
+    memory: wiring.memory,
   });
 
   const combined = new Hono();

@@ -13,6 +13,7 @@ import type { ExecutionLimits } from '../core/actions/executor.js';
 import type { UserQueue } from '../core/queue/user-queue.js';
 import { createTraceWriter } from '../trace/writer.js';
 import { getRequestId, requestIdMiddleware, type RequestIdEnv } from '../api/middleware/request-id.js';
+import type { HarnessMemory } from '../wiring/deps.js';
 import { createMcpServer } from './server.js';
 
 export interface CreateMcpAppDeps {
@@ -26,6 +27,8 @@ export interface CreateMcpAppDeps {
   /** Shared across every route that touches a user's workflow, so an MCP `propose_*` call never interleaves with an API turn or event (plan §8). */
   queue: UserQueue;
   webOrigin: string;
+  /** Same memory service the chat turn uses. `get_profile` reads it for the API-key user only. */
+  memory: HarnessMemory;
 }
 
 interface McpSession {
@@ -73,6 +76,7 @@ export function createMcpApp({
   tracesDir,
   queue,
   webOrigin,
+  memory,
 }: CreateMcpAppDeps): Hono<RequestIdEnv> {
   const app = new Hono<RequestIdEnv>();
   const mcpLog = childLogger(logger, 'mcp');
@@ -126,7 +130,7 @@ export function createMcpApp({
     mcpLog.debug({ requestId, runId, userId: principal.userId }, 'mcp session started');
     const trace = createTraceWriter({ dir: tracesDir, runId, clock });
     const engine = createCoreEngine({ db, clock, providerClient, trace, logger, limits, requestId });
-    const server = createMcpServer({ providerClient, principal, logger, requestId, engine, queue, webOrigin });
+    const server = createMcpServer({ providerClient, principal, logger, requestId, engine, queue, webOrigin, memory });
     // The callback runs during a later handleRequest, after `session` exists.
     const transport = new StreamableHTTPTransport({
       sessionIdGenerator: () => randomUUID(),

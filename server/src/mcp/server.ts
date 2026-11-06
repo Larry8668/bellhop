@@ -6,12 +6,14 @@ import {
   type ProviderSummary,
 } from '@bellhop/shared/contracts';
 import { childLogger, type Logger } from '@bellhop/shared/logger';
+import { z } from 'zod';
 import type { Principal } from '../auth/principal.js';
 import type { ProviderClient } from '../provider-client/index.js';
 import { ProviderError } from '../provider-client/index.js';
 import { fenceReviews } from '../core/untrusted.js';
 import type { CoreEngine } from '../core/engine.js';
 import type { UserQueue } from '../core/queue/user-queue.js';
+import { memoryFactSchema, type HarnessMemory } from '../wiring/deps.js';
 import { registerProposeTools } from './propose-tools.js';
 
 export interface CreateMcpServerDeps {
@@ -25,6 +27,8 @@ export interface CreateMcpServerDeps {
   queue: UserQueue;
   /** Fallback link shown when the client has no elicitation capability (plan §7). */
   webOrigin: string;
+  /** Profile for the API-key user. Facts are that user's data; the tool returns only the small fact fields. */
+  memory: HarnessMemory;
 }
 
 /**
@@ -71,6 +75,7 @@ export function createMcpServer({
   engine,
   queue,
   webOrigin,
+  memory,
 }: CreateMcpServerDeps): McpServer {
   const log = childLogger(logger, 'mcp-server', { userId: principal.userId });
   const server = new McpServer({ name: 'bellhop', version: '0.1.0' });
@@ -146,6 +151,32 @@ export function createMcpServer({
       } catch (err) {
         if (ProviderError.isProviderError(err)) return providerErrorResult(err, log);
         throw err;
+      }
+    },
+  );
+
+  server.registerTool(
+    'get_profile',
+    {
+      description:
+        "Returns the authenticated user's saved profile facts (key, value, kind, status). Takes no arguments: the user is always whoever authenticated this connection, never a value the model supplies. Facts are that user's own data.",
+    },
+    async () => {
+      try {
+        const parsed = z.array(memoryFactSchema).safeParse(memory.getProfile(principal.userId));
+        if (!parsed.success) {
+          log.error({ userId: principal.userId }, 'get_profile returned an unexpected shape');
+          return { isError: true, content: [{ type: 'text' as const, text: 'profile unavailable' }] };
+        }
+        const facts = parsed.data;
+        const text = facts.length === 0 ? 'No saved facts.' : facts.map((fact) => `${fact.key}: ${fact.value}`).join('\n');
+        return {
+          content: [{ type: 'text' as const, text }],
+          structuredContent: { facts },
+        };
+      } catch (err) {
+        log.error({ err, userId: principal.userId }, 'get_profile failed');
+        return { isError: true, content: [{ type: 'text' as const, text: 'profile unavailable' }] };
       }
     },
   );

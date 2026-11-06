@@ -1,19 +1,13 @@
-import type Database from 'better-sqlite3';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { ClientErrorStatusCode } from 'hono/utils/http-status';
 import { z, ZodError } from 'zod';
 import { APIError } from 'better-auth';
-import type { Clock } from '@bellhop/shared/clock';
-import type { Logger } from '@bellhop/shared/logger';
 import { childLogger } from '@bellhop/shared/logger';
-import type { Auth } from '../auth/auth.js';
-import type { ProviderClient } from '../provider-client/client.js';
 import { ProviderError } from '../provider-client/errors.js';
 import { describeOutcome } from '../core/actions/outcomes.js';
 import { createApprovalsRepo } from '../core/repo/approvals.repo.js';
 import type { ExecutionLimits } from '../core/actions/executor.js';
-import type { UserQueue } from '../core/queue/user-queue.js';
 import type { AppVariables } from './middleware/require-user.js';
 import { requireUser } from './middleware/require-user.js';
 import { requireSession } from './middleware/require-session.js';
@@ -23,6 +17,7 @@ import { sortWebBookings } from './bookings.js';
 import { engineFor } from './engine.js';
 import { providerErrorStatus } from './provider-error.js';
 import { registerFactRoutes } from './facts.js';
+import { registerChatRoutes, type ChatRouteDeps } from './chat.js';
 import {
   ApproveProposalBodySchema,
   PostProposalBodySchema,
@@ -32,35 +27,21 @@ const createApiKeyBodySchema = z.object({
   name: z.string().min(1),
 });
 
-export interface CreateApiAppDeps {
-  auth: Auth;
-  logger: Logger;
-  providerClient: ProviderClient;
+export interface CreateApiAppDeps extends ChatRouteDeps {
   webOrigin: string;
-  db: Database.Database;
-  clock: Clock;
+  /** Executor budgets (status checks, retries). Turn budgets live on `turnLimits`. */
   limits: ExecutionLimits;
-  tracesDir: string;
-  queue: UserQueue;
 }
 
 /**
  * Builds the Hono app: Better Auth's own routes under `/api/auth/*`, plus
- * our minimal API (`/api/me`, `/api/keys`, `/api/bookings`). All error paths
+ * our API (`/api/me`, `/api/keys`, `/api/bookings`, proposals, and the chat
+ * routes from `registerChatRoutes`). All error paths
  * funnel through `onError` so every response uses the same
  * `{ error: { code, message } }` envelope (plan §14).
  */
-export function createApiApp({
-  auth,
-  logger,
-  providerClient,
-  webOrigin,
-  db,
-  clock,
-  limits,
-  tracesDir,
-  queue,
-}: CreateApiAppDeps): Hono<{ Variables: AppVariables }> {
+export function createApiApp(deps: CreateApiAppDeps): Hono<{ Variables: AppVariables }> {
+  const { auth, logger, providerClient, webOrigin, db, clock, limits, tracesDir, queue } = deps;
   const app = new Hono<{ Variables: AppVariables }>();
   const httpLog = childLogger(logger, 'http');
   const engineDeps = { db, clock, limits, tracesDir, providerClient, logger };
@@ -344,6 +325,8 @@ export function createApiApp({
       throw err;
     }
   });
+
+  registerChatRoutes(app, deps);
 
   app.onError((err, c) => {
     if (err instanceof ProviderError) {

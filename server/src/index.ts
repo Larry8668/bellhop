@@ -9,8 +9,11 @@ import { migrateDb } from './db/migrate.js';
 import { createProviderClient } from './provider-client/index.js';
 import { createApiApp } from './api/app.js';
 import { createUserQueue } from './core/queue/user-queue.js';
+import { createEventBus } from './events/bus.js';
 import { createMcpApp } from './mcp/index.js';
+import { createProviderAdminClient } from './provider-client/index.js';
 import { startServer } from './server.js';
+import { createAgentModel, createMemoryService, createProactive, runTurn } from './wiring/deps.js';
 
 const DEFAULT_SECRET = 'dev-secret-change-me';
 
@@ -55,7 +58,18 @@ const recovery = await resolvePendingIntents({
 });
 logger.info(recovery, 'startup recovery finished');
 
-// One queue for every surface (API, MCP, later events) so a user's actions never interleave (plan §8).
+// One queue for every surface (API, MCP, proactive) so a user's actions never interleave (plan §8).
+const queue = createUserQueue({ logger });
+const turnLimits = {
+  modelCalls: config.LIMIT_MODEL_CALLS_PER_TURN,
+  toolCalls: config.LIMIT_TOOL_CALLS_PER_TURN,
+  wallClockMs: config.LIMIT_TURN_WALL_CLOCK_MS,
+  statusChecks: config.LIMIT_STATUS_CHECKS,
+  retriesPerTool: config.LIMIT_RETRIES_PER_TOOL,
+};
+const model = createAgentModel(config);
+const memory = createMemoryService({ db, clock: systemClock });
+const bus = createEventBus();
 const workflowDeps = {
   db,
   clock: systemClock,
@@ -64,10 +78,46 @@ const workflowDeps = {
     retriesPerTool: config.LIMIT_RETRIES_PER_TOOL,
   },
   tracesDir: config.TRACES_DIR,
-  queue: createUserQueue({ logger }),
+  queue,
 };
-const app = createApiApp({ auth, logger, providerClient, webOrigin: config.WEB_ORIGIN, ...workflowDeps });
-app.route('/', createMcpApp({ auth, providerClient, logger, webOrigin: config.WEB_ORIGIN, ...workflowDeps }));
+const proactive = createProactive({
+  db,
+  clock: systemClock,
+  providerClient,
+  logger,
+  tracesDir: config.TRACES_DIR,
+  limits: turnLimits,
+  queue,
+  prefs: (userId) =>
+    memory.selectForContext(userId, {}).map((fact) => ({ key: fact.key, value: fact.value })),
+  notify: (userId, message) => {
+    bus.publish(userId, {
+      ts: systemClock.now().toISOString(),
+      type: 'proactive',
+      summary: message.text,
+      detail: { proposalId: message.proposalId ?? null },
+    });
+  },
+});
+proactive.start(config.PROACTIVE_POLL_MS);
+logger.info({ intervalMs: config.PROACTIVE_POLL_MS, devRoutes: config.DEV_ROUTES }, 'proactive poller started');
+
+const app = createApiApp({
+  auth,
+  logger,
+  providerClient,
+  webOrigin: config.WEB_ORIGIN,
+  ...workflowDeps,
+  model,
+  memory,
+  bus,
+  turnLimits,
+  runTurn,
+  proactive,
+  devRoutes: config.DEV_ROUTES,
+  providerAdmin: createProviderAdminClient({ baseUrl: config.PROVIDER_URL }),
+});
+app.route('/', createMcpApp({ auth, providerClient, logger, webOrigin: config.WEB_ORIGIN, memory, ...workflowDeps }));
 
 const { url } = await startServer({ app, port: config.SERVER_PORT, logger });
 logger.info({ url, mcp: `${url}/mcp` }, 'server listening');
