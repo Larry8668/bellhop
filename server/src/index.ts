@@ -5,6 +5,7 @@ import { createAuth } from './auth/auth.js';
 import { migrateAuth } from './auth/migrate.js';
 import { createProviderClient } from './provider-client/index.js';
 import { createApiApp } from './api/app.js';
+import { createMcpApp } from './mcp/index.js';
 import { startServer } from './server.js';
 
 const DEFAULT_SECRET = 'dev-secret-change-me';
@@ -36,6 +37,7 @@ const providerClient = createProviderClient({
 });
 
 const app = createApiApp({ auth, logger, providerClient, webOrigin: config.WEB_ORIGIN });
+app.route('/', createMcpApp({ auth, providerClient, logger }));
 
 const { url } = await startServer({ app, port: config.SERVER_PORT, logger });
-logger.info({ url }, 'server listening');
+logger.info({ url, mcp: `${url}/mcp` }, 'server listening');
