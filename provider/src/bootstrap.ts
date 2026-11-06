@@ -56,6 +56,8 @@ export function bootstrapProvider(deps: {
     config: {
       ...DEFAULT_ENGINE_CONFIG,
       holdPriceDriftProbability: config.HOLD_PRICE_DRIFT_PROB,
+      bookSuccessP: config.BOOK_SUCCESS_P,
+      bookSlotTakenP: config.BOOK_SLOT_TAKEN_P,
     },
   });
 

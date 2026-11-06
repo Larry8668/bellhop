@@ -10,6 +10,8 @@ services:
       PORT: "4010"
       DB_PATH: /data/provider.db
       PROVIDER_ADMIN: "1"
+      BOOK_SUCCESS_P: ${BOOK_SUCCESS_P:-0.7}
+      BOOK_SLOT_TAKEN_P: ${BOOK_SLOT_TAKEN_P:-0.15}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

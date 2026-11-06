@@ -32,3 +32,8 @@ npm-debug.log*
 
 # per-user MCP client config (contains an API key)
 .cursor/mcp.json
+*.db-shm
+*.db-wal
+
+# runtime traces (examples are committed)
+traces/*.jsonl

@@ -56,6 +56,22 @@ export interface BuildTurnContextInput {
   toolsTokens: number;
   memory?: HarnessMemory | undefined;
   logger?: Logger | undefined;
+  /** Injected clock time; lets the model resolve "tomorrow afternoon" itself. */
+  now?: Date | undefined;
+}
+
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** Current time line in IST (the provider's timezone), plus how to turn relative phrases into ISO. */
+export function formatNow(now: Date): string {
+  const ist = new Date(now.getTime() + IST_OFFSET_MS);
+  const iso = ist.toISOString().slice(0, 19);
+  return [
+    `Current time: ${WEEKDAYS[ist.getUTCDay()]} ${iso}+05:30 (Asia/Kolkata).`,
+    'Resolve relative dates yourself; never ask the user for ISO format. Use ISO 8601 with +05:30 for window_from/window_to and date fields.',
+    'Day parts: morning 08:00-12:00, afternoon 12:00-17:00, evening 17:00-21:00, "any time" 08:00-21:00.',
+  ].join('\n');
 }
 
 interface PromptParts {
@@ -250,6 +266,7 @@ export function buildTurnContext(input: BuildTurnContextInput): BuiltTurnContext
   };
   input.memory?.logContext(entry);
 
-  const instructions = [parts.system, parts.memories, parts.task].join('\n\n');
+  const system = input.now ? `${parts.system}\n${formatNow(input.now)}` : parts.system;
+  const instructions = [system, parts.memories, parts.task].join('\n\n');
   return { instructions, messages, estTokens, sections, factIds };
 }
