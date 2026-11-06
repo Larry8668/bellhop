@@ -134,3 +134,17 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 
 **Next**
 - Harness wires `selectForContext`, `remember`, and `logContext` into `prepareStep` (scenario 17, and the conversation half of 18).
+## 2026-11-07 — Phase 3 harness
+
+**Done**
+- `server/src/harness/`: `ToolLoopAgent` turn (`runTurn`), Ollama model factory (think off, temperature 0, `num_ctx` 8192, `keep_alive` 10m, `reliableToolCalling` false), tool wrappers, and `prepareStep` context (system rules, active memories, task-state summary, trimmed history, stale search/get results stubbed, chars/4 budget, `memory.logContext`).
+- Tools close over the caller's `userId`. `propose_booking` rejects a slot outside the task window before holding, and declines a hold whose price is over budget. `update_task` writes gathering constraints. Model-written facts are `inferred`. No tool creates an approval or calls `book` / `cancel` / `reschedule`.
+- Typed yes (`yes`, `confirm`, `book it`, `go ahead`, …) with exactly one live pending proposal is approved in code (`source: 'typed'`) and executed; the reply is `describeOutcome`. The model is not called on that path.
+- Limits: `stepCountIs(modelCalls)`, per-turn tool counter (invalid args count), `AbortSignal.timeout(wallClockMs)`, tool retries of `1 + retriesPerTool`. Every exit has a user-facing message. Model text that claims a booking is replaced unless the outcome came from the executor.
+- Scenarios S01–S05 and S23–S28, plus context and typed-yes tests. Example trace: `traces/examples/s01-happy-path.jsonl`.
+
+**Decided**
+- Tool retries live in the wrapper and consume one tool-call slot per model invocation; the agent's `maxRetries` is 0 so a model HTTP retry is not a second counted call.
+- A typed "yes" with no pending proposal falls through to the model (it may answer a clarifying question). An expired hold, or more than one live proposal, is answered in code and the model is not called.
+- Message timestamps sequence off the previous row when the injected clock does not move, so history stays ordered without advancing hold expiry.
+- Plan §1's typed-yes config flag is not wired; the path is always on. A later wave can gate it. API/MCP/web are untouched.
