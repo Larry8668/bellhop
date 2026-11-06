@@ -13,7 +13,9 @@ export default tseslint.config(
     },
   },
   {
-    files: ['scripts/**/*'],
+    // `**/` prefix so this also matches a workspace's own scripts dir
+    // (e.g. `server/scripts/*`), not just the repo-root `scripts/`.
+    files: ['**/scripts/**/*'],
     rules: {
       'no-console': 'off',
     },
