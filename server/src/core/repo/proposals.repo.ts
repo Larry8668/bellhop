@@ -55,6 +55,8 @@ export interface ProposalsRepo {
   get(userId: string, id: string): Proposal | undefined;
   listPending(userId: string): Proposal[];
   setStatus(userId: string, id: string, status: ProposalStatus, updatedAt: string): void;
+  /** Compare-and-set: moves `from → to` only if the row is still `from`; `true` for the single caller that won. */
+  setStatusIf(userId: string, id: string, from: ProposalStatus, to: ProposalStatus, updatedAt: string): boolean;
   /** Supersedes every pending proposal for `userId` except `exceptId` (plan §6: "a new proposal supersedes any pending one"). Returns the number of rows changed. */
   supersedePending(userId: string, exceptId: string, updatedAt: string): number;
   /** `updatedAt` is required (not in the plan's literal signature) because core never calls `Date.now()`; every write needs the caller's injected-clock timestamp. */
@@ -76,6 +78,9 @@ export function createProposalsRepo(db: Database.Database): ProposalsRepo {
     `SELECT * FROM proposals WHERE user_id = ? AND status = 'pending' ORDER BY created_at ASC`,
   );
   const setStatusStmt = db.prepare('UPDATE proposals SET status = ?, updated_at = ? WHERE user_id = ? AND id = ?');
+  const setStatusIfStmt = db.prepare(
+    'UPDATE proposals SET status = ?, updated_at = ? WHERE user_id = ? AND id = ? AND status = ?',
+  );
   const supersedeStmt = db.prepare(
     `UPDATE proposals SET status = 'superseded', updated_at = ?
      WHERE user_id = ? AND status = 'pending' AND id != ?`,
@@ -120,6 +125,10 @@ export function createProposalsRepo(db: Database.Database): ProposalsRepo {
 
     setStatus(userId: string, id: string, status: ProposalStatus, updatedAt: string): void {
       setStatusStmt.run(status, updatedAt, userId, id);
+    },
+
+    setStatusIf(userId: string, id: string, from: ProposalStatus, to: ProposalStatus, updatedAt: string): boolean {
+      return setStatusIfStmt.run(to, updatedAt, userId, id, from).changes === 1;
     },
 
     supersedePending(userId: string, exceptId: string, updatedAt: string): number {

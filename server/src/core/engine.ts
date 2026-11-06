@@ -18,6 +18,8 @@ export interface CoreEngineDeps {
   trace: TraceWriter;
   logger: Logger;
   limits: ExecutionLimits;
+  /** Forwarded as the provider request-id header on every engine call. */
+  requestId?: string;
 }
 
 export interface CoreEngine {
@@ -36,9 +38,9 @@ export interface CoreEngine {
  * (which service sees which repo) in one place.
  */
 export function createCoreEngine(deps: CoreEngineDeps): CoreEngine {
-  const { db, clock, providerClient, trace, logger, limits } = deps;
+  const { db, clock, providerClient, trace, logger, limits, requestId } = deps;
   const stateMachine = createStateMachine({ db, clock, trace, logger });
-  const proposals = createProposalService({ db, clock, providerClient, stateMachine, trace, logger });
+  const proposals = createProposalService({ db, clock, providerClient, stateMachine, trace, logger, requestId });
   const approvals = createApprovalService({ db, clock, stateMachine, trace, logger });
   const intents = createIntentService({ db, clock, trace, logger });
   const executor = createExecutor({
@@ -52,6 +54,7 @@ export function createCoreEngine(deps: CoreEngineDeps): CoreEngine {
     trace,
     logger,
     limits,
+    requestId,
   });
 
   return {

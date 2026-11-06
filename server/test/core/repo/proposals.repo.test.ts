@@ -34,6 +34,18 @@ describe('proposalsRepo', () => {
     expect(result.map((p) => p.id)).toEqual([pending.id]);
   });
 
+  it('setStatusIf is a compare-and-set: only the first pending → approved wins, and it is user-scoped', () => {
+    const repo = createProposalsRepo(createTestDb());
+    const proposal = makeProposal({ status: 'pending' });
+    repo.insert(proposal);
+    const at = '2026-01-01T00:05:00Z';
+
+    expect(repo.setStatusIf(OTHER_USER, proposal.id, 'pending', 'approved', at)).toBe(false);
+    expect(repo.setStatusIf(TEST_USER, proposal.id, 'pending', 'approved', at)).toBe(true);
+    expect(repo.setStatusIf(TEST_USER, proposal.id, 'pending', 'approved', at)).toBe(false);
+    expect(repo.get(TEST_USER, proposal.id)).toMatchObject({ status: 'approved', updated_at: at });
+  });
+
   it('setStatus updates status and updated_at', () => {
     const repo = createProposalsRepo(createTestDb());
     const proposal = makeProposal();

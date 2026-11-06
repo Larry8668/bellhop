@@ -18,6 +18,8 @@ export interface CoreHarnessOptions {
   /** Executor limits (plan §8): bounded status checks / provider-call retries. */
   statusChecks?: number;
   retriesPerTool?: number;
+  /** Passed to `createCoreEngine`; every engine provider call should carry it as the request-id header. */
+  requestId?: string;
 }
 
 /** One provider call the client sent this run, as seen on the wire. */
@@ -106,7 +108,15 @@ export async function createCoreHarness(opts: CoreHarnessOptions = {}): Promise<
     statusChecks: opts.statusChecks ?? DEFAULT_LIMITS.statusChecks,
     retriesPerTool: opts.retriesPerTool ?? DEFAULT_LIMITS.retriesPerTool,
   };
-  const engine = createCoreEngine({ db, clock: provider.clock, providerClient: client, trace, logger, limits });
+  const engine = createCoreEngine({
+    db,
+    clock: provider.clock,
+    providerClient: client,
+    trace,
+    logger,
+    limits,
+    ...(opts.requestId !== undefined ? { requestId: opts.requestId } : {}),
+  });
 
   function approve(proposal: Proposal, source: ApprovalSource = 'button'): Approval {
     const result = engine.approvals.approve(userId, { proposal_id: proposal.id, hash: proposal.hash, source });

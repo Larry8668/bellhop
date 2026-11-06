@@ -1,6 +1,6 @@
 import type { Clock } from '@bellhop/shared/clock';
 import type { ToolInput, ToolName, ToolOutput } from '@bellhop/shared/contracts';
-import type { ProviderClient } from '../../provider-client/client.js';
+import type { ProviderCallOptions, ProviderClient } from '../../provider-client/client.js';
 import { ProviderError } from '../../provider-client/errors.js';
 import { sanitizeToolResult } from '../../trace/sanitize.js';
 import type { TraceWriter } from '../../trace/writer.js';
@@ -9,6 +9,8 @@ export interface TracedCallDeps {
   providerClient: ProviderClient;
   clock: Clock;
   trace: TraceWriter;
+  /** Sent as the provider's request-id header on every call so provider logs join this run. */
+  requestId?: string | undefined;
 }
 
 function errorSummary(err: unknown): unknown {
@@ -27,12 +29,17 @@ export type TracedProviderCall = <N extends ToolName>(
 /** Every provider attempt — success or failure — emits one sanitized `tool_call` trace event (plan §13). */
 export function createTracedCall(deps: TracedCallDeps): TracedProviderCall {
   const { providerClient, clock, trace } = deps;
+  const options: ProviderCallOptions = deps.requestId === undefined ? {} : { requestId: deps.requestId };
 
   return async function tracedCall<N extends ToolName>(tool: N, userId: string, args: ToolInput<N>) {
     const startedMs = clock.nowMs();
-    const call = providerClient[tool] as (userId: string, input: ToolInput<N>) => Promise<ToolOutput<N>>;
+    const call = providerClient[tool] as (
+      userId: string,
+      input: ToolInput<N>,
+      options: ProviderCallOptions,
+    ) => Promise<ToolOutput<N>>;
     try {
-      const result = await call(userId, args);
+      const result = await call(userId, args, options);
       trace.emit({
         type: 'tool_call',
         tool,

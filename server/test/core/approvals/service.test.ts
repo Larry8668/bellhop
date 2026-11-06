@@ -60,6 +60,23 @@ describe('approval service', () => {
     expect(h.approvals.approve(TEST_USER, input)).toEqual({ ok: false, reason: 'proposal_not_pending' });
   });
 
+  it('two concurrent approves → one ok, one proposal_not_pending, exactly one approval row', async () => {
+    const proposal = await proposeBooking(h, provider);
+    const input = { proposal_id: proposal.id, hash: proposal.hash, source: 'button' as const };
+
+    const results = await Promise.all([
+      Promise.resolve().then(() => h.approvals.approve(TEST_USER, input)),
+      Promise.resolve().then(() => h.approvals.approve(TEST_USER, input)),
+    ]);
+
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.filter((r) => !r.ok)).toEqual([{ ok: false, reason: 'proposal_not_pending' }]);
+    const rows = h.db.prepare('SELECT COUNT(*) AS n FROM approvals WHERE proposal_id = ?').get(proposal.id) as {
+      n: number;
+    };
+    expect(rows.n).toBe(1);
+  });
+
   it('double consume → only the first wins; consume and void are user-scoped and traced', async () => {
     const proposal = await proposeBooking(h, provider);
     const result = h.approvals.approve(TEST_USER, { proposal_id: proposal.id, hash: proposal.hash, source: 'button' });

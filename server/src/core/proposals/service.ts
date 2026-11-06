@@ -21,11 +21,16 @@ import { createBookingsRepo, createProposalsRepo, createTaskStateRepo } from '..
 import { canTransition, type StateMachine } from '../state/machine.js';
 import type { AppBooking, Proposal } from '../types.js';
 
+/**
+ * Card text (name, service) comes from `get_provider`, never from the model.
+ * `provider_name` is accepted and ignored so older callers still parse;
+ * `service`, if given, must match the provider's real service.
+ */
 export const ProposeBookingInputSchema = z.object({
   provider_id: z.string().min(1),
-  provider_name: z.string().min(1),
-  service: ServiceSchema,
   slot: SlotSchema,
+  service: ServiceSchema.optional(),
+  provider_name: z.string().optional(),
 });
 export type ProposeBookingInput = z.infer<typeof ProposeBookingInputSchema>;
 
@@ -75,6 +80,7 @@ export interface ProposalServiceDeps {
   stateMachine: StateMachine;
   trace: TraceWriter;
   logger: Logger;
+  requestId?: string | undefined;
 }
 
 export function isHoldExpired(proposal: Proposal, nowMs: number): boolean {
@@ -82,12 +88,12 @@ export function isHoldExpired(proposal: Proposal, nowMs: number): boolean {
 }
 
 export function createProposalService(deps: ProposalServiceDeps): ProposalService {
-  const { db, clock, providerClient, stateMachine, trace, logger } = deps;
+  const { db, clock, providerClient, stateMachine, trace, logger, requestId } = deps;
   const log = childLogger(logger, 'proposals');
   const proposalsRepo = createProposalsRepo(db);
   const bookingsRepo = createBookingsRepo(db);
   const taskStateRepo = createTaskStateRepo(db);
-  const tracedCall = createTracedCall({ providerClient, clock, trace });
+  const tracedCall = createTracedCall({ providerClient, clock, trace, requestId });
 
   function currentState(userId: string) {
     return taskStateRepo.get(userId)?.state ?? 'GATHERING';
@@ -218,13 +224,25 @@ export function createProposalService(deps: ProposalServiceDeps): ProposalServic
       const input = parsed.data;
       if (!canEnterProposed(userId)) return invalidState(userId);
 
+      let details: BookingProposalDetails;
+      try {
+        const { provider } = await tracedCall('get_provider', userId, { provider_id: input.provider_id });
+        details = { provider_name: provider.name, service: provider.service };
+      } catch (err) {
+        return providerFailure(userId, 'propose_booking', err);
+      }
+      if (input.service !== undefined && input.service !== details.service) {
+        log.warn({ userId, providerId: input.provider_id }, 'proposal rejected: service does not match provider');
+        return { ok: false, code: 'bad_request', message: 'service does not match the provider' };
+      }
+
       let hold: Hold;
       try {
         ({ hold } = await tracedCall('hold_slot', userId, { provider_id: input.provider_id, slot: input.slot }));
       } catch (err) {
         return providerFailure(userId, 'propose_booking', err);
       }
-      const proposal = proposeFromHold(userId, input, hold);
+      const proposal = proposeFromHold(userId, details, hold);
       return { ok: true, proposal };
     },
 

@@ -247,8 +247,6 @@ describe('core scenarios — hold / price matrix', () => {
 
     const proposeResult = await h.engine.proposals.proposeBooking(h.userId, {
       provider_id: provider.id,
-      provider_name: provider.name,
-      service: provider.service,
       slot: provider.slots[0]!,
     });
     if (!proposeResult.ok) throw new Error(proposeResult.code);
@@ -261,7 +259,7 @@ describe('core scenarios — hold / price matrix', () => {
     const tools = h.providerCalls().map((c) => c.tool);
     const intent = createIntentsRepo(h.db).get(key);
     expect(outcome).toMatchObject({ kind: 'booked' });
-    expect(tools).toEqual(['hold_slot', 'book', 'hold_slot', 'book']);
+    expect(tools).toEqual(['get_provider', 'hold_slot', 'book', 'hold_slot', 'book']);
     expect(intent).toMatchObject({ status: 'succeeded', attempts: 2 });
     expect(h.providerBookings()).toHaveLength(1);
     h.assertInvariants();
