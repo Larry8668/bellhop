@@ -18,12 +18,19 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROLE="${1:?role required}"
 MODEL="${2:?model required}"
 BRIEF="${3:?brief required}"
-FLAG="${4:-}"
+shift 3
 
-case "$FLAG" in
-  ""|--readonly) ;;
-  *) echo "delegate: unknown flag '$FLAG' (only --readonly is accepted)" >&2; exit 2 ;;
-esac
+# Flags: --readonly | --worktree=<name>  (isolated worktree + branch off the current branch; for parallel delegates)
+FLAG=""
+WORKTREE=""
+for ARG in "$@"; do
+  case "$ARG" in
+    --readonly) FLAG="--readonly" ;;
+    --worktree=*) WORKTREE="${ARG#--worktree=}"
+                  [[ "$WORKTREE" =~ ^[a-z0-9][a-z0-9._/-]*$ ]] || { echo "delegate: invalid worktree name '$WORKTREE'" >&2; exit 2; } ;;
+    *) echo "delegate: unknown flag '$ARG' (accepted: --readonly, --worktree=<name>)" >&2; exit 2 ;;
+  esac
+done
 
 [[ "$ROLE" =~ ^[a-z][a-z0-9-]*$ ]] || { echo "delegate: invalid role name '$ROLE'" >&2; exit 2; }
 ROLE_FILE="$ROOT/.cursor/agents/$ROLE.md"
@@ -39,8 +46,16 @@ if [ "$FLAG" = "--readonly" ] || { [ -n "$ROLE_READONLY" ] && [ "$ROLE_READONLY"
   READONLY=1
 fi
 
+WT_ARGS=()
+WT_NOTE=""
+if [ -n "$WORKTREE" ]; then
+  BASE_BRANCH="$(git -C "$ROOT" branch --show-current)"
+  WT_ARGS=(-w "$WORKTREE" --worktree-base "$BASE_BRANCH")
+  WT_NOTE=$'\n'"You are running in an isolated git worktree on a new branch based on '$BASE_BRANCH'. Work ONLY inside that worktree (your current working directory), never in $ROOT. Run \`npm install\` there first (node_modules are not shared). Do not commit; the parent commits."
+fi
+
 PROMPT="$(cat <<EOF
-Repository: $ROOT
+Repository: $ROOT$WT_NOTE
 You are acting as the '$ROLE' role. Follow AGENTS.md and .cursor/rules/*.mdc.
 
 $ROLE_PROMPT
@@ -70,9 +85,9 @@ else
   HOOKS_BEFORE="$(guard_snapshot || true)"
 fi
 
-echo "delegate: role=$ROLE model=$MODEL mode=${MODE_ARGS[*]} → $OUT" >&2
+echo "delegate: role=$ROLE model=$MODEL mode=${MODE_ARGS[*]}${WORKTREE:+ worktree=$WORKTREE} → $OUT" >&2
 set +e
-"${ENV_ARGS[@]+"${ENV_ARGS[@]}"}" agent -p --trust "${MODE_ARGS[@]}" --model "$MODEL" --output-format text --workspace "$ROOT" "$PROMPT" | tee "$OUT"
+"${ENV_ARGS[@]+"${ENV_ARGS[@]}"}" agent -p --trust "${MODE_ARGS[@]}" "${WT_ARGS[@]+"${WT_ARGS[@]}"}" --model "$MODEL" --output-format text --workspace "$ROOT" "$PROMPT" | tee "$OUT"
 PIPE=("${PIPESTATUS[@]}")
 set -e
 STATUS=${PIPE[0]}
@@ -86,5 +101,9 @@ if [ "$READONLY" -eq 0 ]; then
   fi
 fi
 
+if [ -n "$WORKTREE" ]; then
+  echo "delegate: worktrees now:" >&2
+  git -C "$ROOT" worktree list >&2
+fi
 echo "delegate: $ROLE exit=$STATUS in $(( $(date +%s) - START ))s" >&2
 exit "$STATUS"
