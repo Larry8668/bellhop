@@ -33,5 +33,12 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 - GitHub branch protection / rulesets unavailable: private repo on Free plan returns 403 (needs Pro or a public repo). Local pre-push hook is the guard for now.
 - Headless CLI probe (`agent -p --trust --model …`): composer-2.5, grok-4.7-low, claude-sonnet-5-thinking-high, claude-opus-5-5-low, gpt-5.3-codex-low all respond in 10–12 s. Custom `.cursor/agents` are not visible to the IDE Task tool mid-session; verify on next turn.
 
+**Delegation via CLI (PR #3)**
+- Default delegation channel is the headless Cursor CLI: `scripts/delegate.sh <role> <model> "<brief>"`; `scripts/review-panel.sh "<task>"` runs the three reviewers in parallel with the diff inlined. IDE Task-tool subagents are the fallback.
+- Model per task by complexity: composer-2.5 / grok-4.7-medium (mechanical), claude-sonnet-5-thinking-high (multi-file logic), claude-opus-5-5-medium (core guarantees). No GPT models (dated).
+- Reviewer pins: quality grok-4.7-high, security claude-opus-5-5-medium, correctness grok-4.7-medium. Reviewers capped at 5/5/3 findings and run in `--mode ask` (CLI-enforced read-only).
+- First panel run on this branch: 490 s wall, because reviewers without `--force` had every `git diff` denied and retried. Fix: inline the diff, `--mode ask`. Panel findings (swallowed reviewer failures, prompt-only read-only, role path injection, non-unique transcript names, no cleanup trap) all fixed in the same PR.
+- `.cursor/cli.json` denies `git push/commit/merge`, `gh`, `docs/internal/**`, `.env*` to CLI delegates; deny rules survive `--force`. Parent owns git; main is PR-only (`AGENTS.md`).
+
 **Next**
-- Verify custom subagents + model pins from the IDE on a fresh turn, then Phase 0.
+- Phase 0.

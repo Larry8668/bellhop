@@ -28,7 +28,7 @@ alwaysApply: true
 
 ## Git — PRs only
 
-- **Nothing reaches `main` except via a pull request.** Never commit, push, or merge locally into `main`. Branch per task: `feat/`, `fix/`, `docs/`, `chore/`, `test/`. The `pre-push` hook enforces this locally (GitHub branch protection needs a paid plan for private repos); the rule holds even where the hook doesn't run.
+- **Nothing reaches `main` except via a pull request.** Never commit, push, or merge locally into `main`. Branch per task: `feat/`, `fix/`, `docs/`, `chore/`, `test/`. Guards: the `pre-push` hook blocks pushes to `main`; `.cursor/cli.json` denies `git push/commit/merge` and `gh` to CLI delegates entirely (parent owns git). GitHub branch protection needs a paid plan for private repos; the rule holds regardless.
 - Conventional commits (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `refactor:`), enforced by commitlint. Small, meaningful commits.
 - Merge with `gh pr merge --rebase --delete-branch` to keep the linear history of small commits.
 

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "editor": { "vimMode": false },
+  "permissions": {
+    "allow": [],
+    "deny": [
+      "Shell(git push)",
+      "Shell(git push *)",
+      "Shell(git:push*)",
+      "Shell(git commit)",
+      "Shell(git commit *)",
+      "Shell(git:commit*)",
+      "Shell(git merge)",
+      "Shell(git merge *)",
+      "Shell(git:merge*)",
+      "Shell(gh *)",
+      "Shell(gh:*)",
+      "Read(docs/internal/**)",
+      "Read(.env*)",
+      "Write(.env*)",
+      "Write(.husky/**)",
+      "Write(.cursor/**)"
+    ]
+  }
+}
