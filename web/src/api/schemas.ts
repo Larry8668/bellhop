@@ -56,9 +56,11 @@ export const approveResponseSchema = z.object({
   message: z.string(),
 });
 
-export const declineResponseSchema = z.object({
+export const okResponseSchema = z.object({
   ok: z.literal(true),
 });
+
+export const declineResponseSchema = okResponseSchema;
 
 /** `GET /api/task` — extra fields allowed by the server. */
 export const taskStateSchema = z
@@ -93,6 +95,7 @@ export const chatMessageSchema = z.object({
   role: z.enum(['user', 'assistant', 'system']),
   text: z.string(),
   createdAt: z.string(),
+  proposalId: z.string().nullable().optional(),
 });
 
 export const traceEventSchema = z.object({

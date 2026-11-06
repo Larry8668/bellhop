@@ -52,7 +52,7 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 - [x] `/mcp` stateless Streamable HTTP via `@hono/mcp`; tools `search_providers`, `get_provider` (fenced reviews), `list_bookings`, `whoami`
 - [x] MCP `propose_*` + elicitation approval + UI-link fallback (Phase 2 wave 3B)
 - [x] `/api/proposals` (+ approve/decline), `/api/task`, web Proposals page with hash-carrying Confirm (Phase 2 wave 3C/3D)
-- [ ] Web chat/events/facts endpoints (Phases 3–4); `/api/facts` is served, chat/events still show "not available yet" until the harness lands
+- [x] Web chat UI calls `/api/messages`, `/api/chat/send`, `/api/events`, `/api/facts`, and `/api/dev/provider-cancel` (404 "not available yet" fallback removed). Server handlers are a separate task.
 - [ ] Verify elicitation end-to-end from Cursor's MCP client (does it surface the confirm form? else the UI-link fallback is what users see)
 
 ## Phase 2 — Core engine (PRs #22–#30 into `feat/phase-2-core`)
@@ -100,7 +100,7 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 ## Phase 6 — API + Auth + UI
 
 - [ ] HTTP + SSE routes; Better Auth email/password; seeded demo account
-- [ ] Web: Login, Chat (approval card, trace panel), Profile (facts, API key), Bookings
+- [x] Web: Login (demo hint), Chat (approval card + countdown, trace panel), Profile (grouped facts, API key + MCP snippet), Bookings (dev provider-cancel), mock API (2026-11-07)
 
 ## Phase 7 — MCP
 

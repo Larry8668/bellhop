@@ -53,6 +53,20 @@ describe('ApprovalCard', () => {
     expect(onDecline).toHaveBeenCalledTimes(1);
   });
 
+  it('counts down the hold from a frozen clock', () => {
+    const now = new Date(baseProposal.hold_expires_at).getTime() - 90_000;
+    render(
+      <ApprovalCard
+        proposal={baseProposal}
+        nowMs={now}
+        onConfirm={vi.fn()}
+        onDecline={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('hold-countdown')).toHaveTextContent('1m 30s');
+    expect(screen.getByText('Slot (local time)')).toBeInTheDocument();
+  });
+
   it('shows an expired badge when expired', () => {
     const { container } = render(
       <ApprovalCard

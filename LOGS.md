@@ -148,3 +148,12 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 - A typed "yes" with no pending proposal falls through to the model (it may answer a clarifying question). An expired hold, or more than one live proposal, is answered in code and the model is not called.
 - Message timestamps sequence off the previous row when the injected clock does not move, so history stays ordered without advancing hold expiry.
 - Plan §1's typed-yes config flag is not wired; the path is always on. A later wave can gate it. API/MCP/web are untouched.
+## 2026-11-07 — Phase 6 web UI demo pass
+
+**Done**
+- Chat, trace, profile, bookings, and login in `web/` are demo-ready against the messages / chat-send / events / facts / dev-cancel contract. Confirm sends the card hash, then the chat shows the code-verified outcome and reloads messages and bookings.
+- Mock mode scripts a proposal, SSE-style trace events, and a provider cancel that emits `proactive` plus a replacement proposal. The 404 "not available yet" fallback is gone from the web API client.
+
+**Decided**
+- Mock mode stays `VITE_USE_MOCK=true` (Vitest and `.env.example`) and also turns on when `VITE_API_MODE=mock`.
+- The approval-card hold countdown ticks on a clock in the component; tests pass a frozen `nowMs`. The dev provider-cancel control is an inline two-step button, not `confirm()`.

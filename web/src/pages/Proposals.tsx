@@ -6,67 +6,11 @@ import { ApiError } from '../api/client.js';
 import { KNOWN_BOOKING_SERVICES } from '../constants/bookingServices.js';
 import { Layout } from '../components/Layout.js';
 import { ApprovalCard } from '../components/ApprovalCard.js';
+import { OutcomeFeedback } from '../components/OutcomeFeedback.js';
 import { ErrorBanner } from '../components/ErrorBanner.js';
 import { Spinner } from '../components/Spinner.js';
 import { Button } from '../components/Button.js';
 import { log } from '../logger.js';
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null;
-}
-
-function slotAlternatives(outcome: ExecutionOutcome): unknown {
-  if (!isRecord(outcome)) return undefined;
-  return outcome.alternatives;
-}
-
-function OutcomeFeedback({
-  feedback,
-}: {
-  feedback: { message: string; outcome: ExecutionOutcome };
-}): React.ReactElement {
-  return (
-    <div className="mt-3 space-y-2">
-      {feedback.outcome.kind === 'unconfirmed' ? (
-        <div
-          className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950"
-          role="status"
-        >
-          <p className="font-medium">Unconfirmed</p>
-          <p className="mt-0.5">{feedback.message}</p>
-        </div>
-      ) : (
-        <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800">
-          <p className="font-medium capitalize">
-            {feedback.outcome.kind.replace(/_/g, ' ')}
-          </p>
-          <p className="mt-0.5">{feedback.message}</p>
-        </div>
-      )}
-      {feedback.outcome.kind === 'slot_gone' ? (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800">
-          <p className="font-medium">Alternatives</p>
-          {Array.isArray(slotAlternatives(feedback.outcome)) ? (
-            <ul className="mt-1 list-inside list-disc">
-              {(slotAlternatives(feedback.outcome) as { start: string; end: string }[]).map(
-                (alt, i) => (
-                  <li key={i}>
-                    {new Date(alt.start).toLocaleString()} →{' '}
-                    {new Date(alt.end).toLocaleString()}
-                  </li>
-                ),
-              )}
-            </ul>
-          ) : (
-            <p className="mt-1 text-zinc-600">
-              No structured alternatives — check the message above.
-            </p>
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 export function Proposals(): React.ReactElement {
   const { id: highlightId } = useParams<{ id?: string }>();

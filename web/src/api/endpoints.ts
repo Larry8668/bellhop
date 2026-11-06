@@ -14,4 +14,6 @@ export const endpoints = {
   fact: (id: string) => `/api/facts/${id}`,
   bookings: '/api/bookings',
   apiKeys: '/api/keys',
+  devProviderCancel: (bookingId: string) =>
+    `/api/dev/provider-cancel/${encodeURIComponent(bookingId)}`,
 } as const;

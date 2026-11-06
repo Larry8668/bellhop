@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { api } from '../api/index.js';
 import type { Booking } from '../api/types.js';
-import { ApiError } from '../api/client.js';
 import { Layout } from '../components/Layout.js';
 import { Badge } from '../components/Badge.js';
 import { Button } from '../components/Button.js';
 import { ErrorBanner } from '../components/ErrorBanner.js';
 import { Spinner } from '../components/Spinner.js';
 import { log } from '../logger.js';
+import { errorMessage } from '../uiError.js';
 
 function statusTone(
   s: Booking['status'],
@@ -24,18 +24,20 @@ export function Bookings(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancelBusyId, setCancelBusyId] = useState<string | null>(null);
+  const [armedId, setArmedId] = useState<string | null>(null);
+  const [simulateBusyId, setSimulateBusyId] = useState<string | null>(null);
+  const hasLoaded = useRef(false);
 
   const load = useCallback(async (): Promise<void> => {
-    setLoading(true);
+    if (!hasLoaded.current) setLoading(true);
     setError(null);
     try {
       const list = await api.listBookings();
       setItems(list);
+      hasLoaded.current = true;
     } catch (err) {
       log.error({ err }, 'list bookings failed');
-      const message =
-        err instanceof ApiError ? err.message : 'Could not load bookings';
-      setError(message);
+      setError(errorMessage(err, 'Could not load bookings'));
     } finally {
       setLoading(false);
     }
@@ -63,16 +65,30 @@ export function Bookings(): React.ReactElement {
       navigate('/proposals');
     } catch (err) {
       log.error({ err }, 'create cancel proposal failed');
-      const message =
-        err instanceof ApiError ? err.message : 'Could not request cancellation';
-      setError(message);
+      setError(errorMessage(err, 'Could not request cancellation'));
     } finally {
       setCancelBusyId(null);
     }
   }
 
+  async function handleSimulateCancel(bookingId: string): Promise<void> {
+    setError(null);
+    setSimulateBusyId(bookingId);
+    try {
+      await api.simulateProviderCancel(bookingId);
+      setArmedId(null);
+      await load();
+    } catch (err) {
+      log.error({ err, bookingId }, 'simulate provider cancel failed');
+      setError(errorMessage(err, 'Could not simulate provider cancel'));
+    } finally {
+      setSimulateBusyId(null);
+    }
+  }
+
   function row(b: Booking): React.ReactElement {
     const canRequestCancel = b.when === 'upcoming' && b.status === 'confirmed';
+    const armed = armedId === b.id;
     return (
       <li
         key={b.id}
@@ -90,14 +106,44 @@ export function Bookings(): React.ReactElement {
           <Badge tone="info">{b.price} INR</Badge>
           <Badge tone={statusTone(b.status)}>{b.status}</Badge>
           {canRequestCancel ? (
-            <Button
-              variant="secondary"
-              className="text-xs"
-              disabled={cancelBusyId === b.id}
-              onClick={() => void handleCancelBooking(b.id)}
-            >
-              Cancel booking
-            </Button>
+            <>
+              <Button
+                variant="secondary"
+                className="text-xs"
+                disabled={cancelBusyId === b.id}
+                onClick={() => void handleCancelBooking(b.id)}
+              >
+                Cancel booking
+              </Button>
+              {armed ? (
+                <>
+                  <Button
+                    variant="danger"
+                    className="text-xs"
+                    disabled={simulateBusyId === b.id}
+                    onClick={() => void handleSimulateCancel(b.id)}
+                  >
+                    Yes, simulate cancel
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="text-xs"
+                    disabled={simulateBusyId === b.id}
+                    onClick={() => setArmedId(null)}
+                  >
+                    Back
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="secondary"
+                  className="text-xs"
+                  onClick={() => setArmedId(b.id)}
+                >
+                  Simulate provider cancel
+                </Button>
+              )}
+            </>
           ) : null}
         </div>
       </li>
@@ -118,7 +164,7 @@ export function Bookings(): React.ReactElement {
           <Spinner label="Loading bookings" />
         ) : (
           <>
-            <section>
+            <section aria-label="Upcoming">
               <h2 className="text-sm font-semibold text-zinc-900">Upcoming</h2>
               {upcoming.length === 0 ? (
                 <p className="mt-2 text-sm text-zinc-500">No upcoming bookings.</p>
@@ -126,7 +172,7 @@ export function Bookings(): React.ReactElement {
                 <ul className="mt-2 space-y-2">{upcoming.map(row)}</ul>
               )}
             </section>
-            <section>
+            <section aria-label="Past">
               <h2 className="text-sm font-semibold text-zinc-900">Past</h2>
               {past.length === 0 ? (
                 <p className="mt-2 text-sm text-zinc-500">No past bookings.</p>
