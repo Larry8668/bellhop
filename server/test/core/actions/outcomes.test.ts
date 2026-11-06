@@ -32,7 +32,7 @@ describe('ExecutionOutcome', () => {
     expect(ALL.filter(isSuccessOutcome).map((o) => o.kind)).toEqual(['booked', 'cancelled', 'rescheduled']);
   });
 
-  it('S15 unconfirmed says unconfirmed and checking, never success', () => {
+  it('unconfirmed says unconfirmed and checking, never success', () => {
     const text = describeOutcome({ kind: 'unconfirmed', idempotency_key: 'k', checks: 3 });
     expect(text).toMatch(/unconfirmed/);
     expect(text).toMatch(/checking/);
