@@ -1,0 +1,25 @@
+# Transcripts index
+
+- `bellhop-planning-transcript.md` — claude.ai planning chat before implementation.
+- `cursor-main-session.md` — Cursor parent agent session (a23f5f22), full build conversation; tool calls summarised.
+- `cursor-subagents/` — other Cursor sessions and subagents of this project, one file each:
+  - `016aa612-0fac-460b-91aa-eebfe9b2cdde.md` (separate session, 12 turns) — Saturday, Nov 7, 2026, 12:22 AM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acti
+  - `03adef4f-aafb-45d4-a738-900c143830eb.md` (separate session, 4 turns) — Friday, Nov 6, 2026, 5:03 PM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acting 
+  - `255ecdcc-7d8b-4d5f-af79-8eed41bbddd8.md` (separate session, 14 turns) — Friday, Nov 6, 2026, 4:51 PM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acting 
+  - `2e7c7c78-dea1-46be-86fb-fad64019499c.md` (separate session, 6 turns) — Friday, Nov 6, 2026, 4:51 PM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acting 
+  - `62fff7e8-ea5e-41ec-b74a-d5582d2e6862.md` (separate session, 4 turns) — Friday, Nov 6, 2026, 7:31 PM (UTC+5:30) do not access any code for this session how me plumber for this weeks 
+  - `6c1e62df-38bf-4855-be48-41948a5d20ce.md` (separate session, 5 turns) — Friday, Nov 6, 2026, 5:03 PM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acting 
+  - `83d8b2f7-347a-4f85-8dd3-701184b4f034.md` (separate session, 13 turns) — Friday, Nov 6, 2026, 7:54 PM (UTC+5:30) do not access any code for this session Show me plumber for this weeks
+  - `881cd944-a420-4c57-948b-678a4aa3f1c4.md` (separate session, 10 turns) — Friday, Nov 6, 2026, 11:56 PM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acting
+  - `8a543e19-d072-4820-9e48-72d4601b52d5.md` (separate session, 15 turns) — Friday, Nov 6, 2026, 4:51 PM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acting 
+  - `8bcc3b60-8f27-4d69-8c09-8413673815f8.md` (separate session, 13 turns) — Friday, Nov 6, 2026, 5:48 PM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acting 
+  - `8d946d51-753a-43f5-ba24-41fa6498e2f2.md` (separate session, 6 turns) — Friday, Nov 6, 2026, 7:28 PM (UTC+5:30) do u see tools for the bellhop mcp - do nota ccess any code in this se
+  - `a10b795d-0649-4f24-8105-2382207cf7a4.md` (separate session, 21 turns) — Friday, Nov 6, 2026, 11:56 PM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acting
+  - `93213b80-0b94-40d6-9394-c952414b09e3.md` (subagent of main, 8 turns) — Friday, Nov 6, 2026, 4:14 PM (UTC+5:30) Research Cursor's product documentation and answer these questions pre
+  - `9a508511-3750-432a-b445-1a718d7a64c3.md` (subagent of main, 2 turns) — Friday, Nov 6, 2026, 4:51 PM (UTC+5:30) This is a one-line capability check, not a review. Do not read any fil
+  - `cd6282eb-b369-4c01-8288-af6615ceae32.md` (separate session, 5 turns) — Friday, Nov 6, 2026, 5:03 PM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acting 
+  - `db4e28fe-37c0-4212-b477-08b8b41bd07c.md` (separate session, 6 turns) — Friday, Nov 6, 2026, 5:11 PM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acting 
+  - `e216b6fc-db3a-4a16-aee6-75fa93c9d041.md` (separate session, 3 turns) — Friday, Nov 6, 2026, 11:56 PM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acting
+  - `e7c5dd3f-ee44-4849-bdbb-08cc77d7d8fb.md` (separate session, 5 turns) — Friday, Nov 6, 2026, 5:02 PM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acting 
+  - `e854f8d4-d934-4dae-9a53-461f3c5d0a27.md` (separate session, 26 turns) — Friday, Nov 6, 2026, 5:18 PM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acting 
+  - `ecd8f12b-5d88-4f85-9913-23d6861c1c44.md` (separate session, 44 turns) — Saturday, Nov 7, 2026, 12:22 AM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acti
