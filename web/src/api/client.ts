@@ -32,6 +32,12 @@ const userSchema = z.object({
   name: z.string(),
 });
 
+/** `GET /api/me` wraps the user with how the caller authenticated (session vs API key). */
+const meResponseSchema = z.object({
+  user: userSchema,
+  via: z.enum(['session', 'api_key']),
+});
+
 const chatMessageSchema = z.object({
   id: z.string(),
   role: z.enum(['user', 'assistant', 'system']),
@@ -63,19 +69,30 @@ const bookingSchema = z.object({
     end: z.string(),
   }),
   price: z.number(),
+  currency: z.literal('INR'),
   status: z.enum(['confirmed', 'cancelled', 'rescheduled']),
   when: z.enum(['past', 'upcoming']),
 });
 
+/** List item shape from `GET /api/keys` — never includes key material. */
 const apiKeySchema = z.object({
   id: z.string(),
   name: z.string(),
-  prefix: z.string(),
+  start: z.string().optional(),
+  prefix: z.string().optional(),
   createdAt: z.string(),
 });
 
-const createApiKeySchema = apiKeySchema.extend({
-  plaintextKey: z.string(),
+const apiKeysListResponseSchema = z.object({
+  keys: z.array(apiKeySchema),
+});
+
+/** `POST /api/keys` returns the plaintext key once, alongside its id/name/createdAt. */
+const createApiKeyResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  key: z.string(),
+  createdAt: z.string(),
 });
 
 const errorBodySchema = z.object({
@@ -129,6 +146,11 @@ async function readError(response: Response): Promise<ApiError> {
     }
   } catch {
     // ignore
+  }
+  // Messages/events/facts routes don't exist on the server yet — surface a
+  // readable message instead of the generic "no such route" envelope.
+  if (response.status === 404) {
+    message = 'This feature is not available yet.';
   }
   return new ApiError(response.status, code, message);
 }
@@ -198,7 +220,15 @@ export const httpApi: Api = {
   signOut: () =>
     fetchOk(endpoints.signOut, { method: 'POST' }),
 
-  me: () => fetchJson(endpoints.me, undefined, userSchema.nullable(), 'me'),
+  me: async () => {
+    const response = await fetch(endpoints.me, { credentials: 'include' });
+    // Not signed in is an expected outcome here, not an error — the caller
+    // (SessionProvider) should see `null`, not a thrown ApiError.
+    if (response.status === 401) return null;
+    if (!response.ok) throw await readError(response);
+    const data = await parseJson(response, meResponseSchema, 'me');
+    return data.user;
+  },
 
   listMessages: () =>
     fetchJson(endpoints.messages, undefined, z.array(chatMessageSchema), 'messages'),
@@ -265,18 +295,27 @@ export const httpApi: Api = {
       'bookings',
     ),
 
-  listApiKeys: () =>
-    fetchJson(endpoints.apiKeys, undefined, z.array(apiKeySchema), 'apiKeys'),
+  listApiKeys: async () => {
+    const data = await fetchJson(
+      endpoints.apiKeys,
+      undefined,
+      apiKeysListResponseSchema,
+      'apiKeys',
+    );
+    return data.keys;
+  },
 
-  createApiKey: (name) =>
-    fetchJson(
+  createApiKey: async (name) => {
+    const data = await fetchJson(
       endpoints.apiKeys,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       },
-      createApiKeySchema,
+      createApiKeyResponseSchema,
       'createApiKey',
-    ),
+    );
+    return { id: data.id, name: data.name, createdAt: data.createdAt, plaintextKey: data.key };
+  },
 };

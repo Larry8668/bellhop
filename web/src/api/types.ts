@@ -57,6 +57,7 @@ export interface Booking {
   service: string;
   slot: { start: string; end: string };
   price: number;
+  currency: 'INR';
   status: BookingStatus;
   when: BookingWhen;
 }
@@ -64,7 +65,9 @@ export interface Booking {
 export interface ApiKey {
   id: string;
   name: string;
-  prefix: string;
+  /** Shown instead of the full key once it is created; the server may omit either. */
+  start?: string;
+  prefix?: string;
   createdAt: string;
 }
 
