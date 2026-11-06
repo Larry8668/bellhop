@@ -23,6 +23,7 @@ const configSchema = z.object({
   LIMIT_RETRIES_PER_TOOL: numberEnv('LIMIT_RETRIES_PER_TOOL').default(2),
   CONTEXT_BUDGET_TOKENS: numberEnv('CONTEXT_BUDGET_TOKENS').default(8192),
   PROVIDER_URL: z.string().default('http://localhost:4010'),
+  PROVIDER_TIMEOUT_MS: numberEnv('PROVIDER_TIMEOUT_MS').default(5000),
   DB_PATH: z.string().default('./data/bellhop.db'),
   TRACES_DIR: z.string().default('../traces'),
   LOG_LEVEL: z.string().default('info'),
