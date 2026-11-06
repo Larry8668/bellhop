@@ -43,5 +43,14 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 - Panel findings fixed in this PR: reviewer failures were swallowed; `--readonly` was prompt-only (now `--mode ask`, fail-closed on frontmatter); role name path injection; non-unique transcript names; no cleanup trap; truncation pipeline SIGPIPE; dirty-tree not detected; reviewers could be steered by `VERDICT:` text in the diff (now fenced + warned).
 - `.cursor/cli.json` denies `git push/commit/merge`, `gh`, `docs/internal/**`, `.env*` to CLI delegates; deny rules survive `--force` but are prefix-based and bypassable (`git -C`, `sh -c`), so writer delegates additionally run with git/gh credentials stripped from the environment (verified: `git -C . push` and `sh -c 'git push'` both fail auth; `gh` blocked) and `.husky`/`.cursor`/`core.hooksPath` are checked after each run. Parent owns git; main is PR-only (`AGENTS.md`).
 
+**Phase 0 — scaffold (PR #7, stacked from #5, #6)**
+- Stacked flow used for the first time: integration branch `feat/phase-0-scaffold`; wave 1 (root tooling + `shared`) ran alone because it owns the lockfile; wave 2 ran `server` and `provider` in parallel CLI worktrees (`scripts/delegate.sh … --worktree=<name>`), each merged by PR into the phase branch, then one PR to `main`. Lockfile edits were disjoint; rebase was clean.
+- Delegate timings: wave 1 composer-2.5 250 s; wave 2 claude-sonnet-5-thinking-high 85 s, composer-2.5 86 s.
+- `@bellhop/shared` is consumed via `dist/` (NodeNext `exports`); root `prepare` builds it after install so `npm ci` in CI and fresh clones resolve it. Source-path exports were rejected because they fight `rootDir` in the consuming workspaces' typecheck.
+- `web/` left out of workspaces until Phase 6 (no point carrying an empty Vite app through the core phases).
+- Ollama smoke verified: `qwen3.5:9b` via `ai-sdk-ollama` 4.x returns a well-formed `search_providers` call for the plan's sample prompt (374 in / 57 out tokens, ~2 s). `ai` v7 exports `stepCountIs`, not `isStepCount`.
+- `trace/types.ts` uses a distributive `Omit` so `emit()` keeps the discriminated union narrow.
+- 20 tests across the three workspaces; lint/typecheck clean from root.
+
 **Next**
-- Phase 0.
+- Phase 1: provider engine + 8 tool routes + admin routes; `server/src/provider-client`.
