@@ -27,6 +27,10 @@ const configSchema = z.object({
   DB_PATH: z.string().default('./data/bellhop.db'),
   TRACES_DIR: z.string().default('../traces'),
   LOG_LEVEL: z.string().default('info'),
+  SERVER_PORT: numberEnv('SERVER_PORT').default(4000),
+  BETTER_AUTH_SECRET: z.string().default('dev-secret-change-me'),
+  BETTER_AUTH_URL: z.string().default('http://localhost:4000'),
+  WEB_ORIGIN: z.string().default('http://localhost:5173'),
 });
 
 export type Config = z.infer<typeof configSchema>;
