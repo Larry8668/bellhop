@@ -55,12 +55,8 @@ const recovery = await resolvePendingIntents({
 });
 logger.info(recovery, 'startup recovery finished');
 
-const queue = createUserQueue({ logger });
-const app = createApiApp({
-  auth,
-  logger,
-  providerClient,
-  webOrigin: config.WEB_ORIGIN,
+// One queue for every surface (API, MCP, later events) so a user's actions never interleave (plan §8).
+const workflowDeps = {
   db,
   clock: systemClock,
   limits: {
@@ -68,9 +64,10 @@ const app = createApiApp({
     retriesPerTool: config.LIMIT_RETRIES_PER_TOOL,
   },
   tracesDir: config.TRACES_DIR,
-  queue,
-});
-app.route('/', createMcpApp({ auth, providerClient, logger }));
+  queue: createUserQueue({ logger }),
+};
+const app = createApiApp({ auth, logger, providerClient, webOrigin: config.WEB_ORIGIN, ...workflowDeps });
+app.route('/', createMcpApp({ auth, providerClient, logger, webOrigin: config.WEB_ORIGIN, ...workflowDeps }));
 
 const { url } = await startServer({ app, port: config.SERVER_PORT, logger });
 logger.info({ url, mcp: `${url}/mcp` }, 'server listening');
