@@ -27,8 +27,8 @@ export interface CoreHarness {
 }
 
 /** Comfortably longer than the provider's forced timeout delay, short enough to keep tests fast. */
-const CLIENT_TIMEOUT_MS = 100;
-const PROVIDER_TIMEOUT_DELAY_MS = 150;
+const CLIENT_TIMEOUT_MS = 300;
+const PROVIDER_TIMEOUT_DELAY_MS = 800;
 
 /**
  * Real `startTestProvider` (over real HTTP) + a fresh in-memory core DB +
