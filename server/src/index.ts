@@ -8,6 +8,7 @@ import { createAuth } from './auth/auth.js';
 import { migrateDb } from './db/migrate.js';
 import { createProviderClient } from './provider-client/index.js';
 import { createApiApp } from './api/app.js';
+import { createUserQueue } from './core/queue/user-queue.js';
 import { createMcpApp } from './mcp/index.js';
 import { startServer } from './server.js';
 
@@ -54,7 +55,21 @@ const recovery = await resolvePendingIntents({
 });
 logger.info(recovery, 'startup recovery finished');
 
-const app = createApiApp({ auth, logger, providerClient, webOrigin: config.WEB_ORIGIN });
+const queue = createUserQueue({ logger });
+const app = createApiApp({
+  auth,
+  logger,
+  providerClient,
+  webOrigin: config.WEB_ORIGIN,
+  db,
+  clock: systemClock,
+  limits: {
+    statusChecks: config.LIMIT_STATUS_CHECKS,
+    retriesPerTool: config.LIMIT_RETRIES_PER_TOOL,
+  },
+  tracesDir: config.TRACES_DIR,
+  queue,
+});
 app.route('/', createMcpApp({ auth, providerClient, logger }));
 
 const { url } = await startServer({ app, port: config.SERVER_PORT, logger });

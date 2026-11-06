@@ -1,6 +1,11 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { systemClock } from '@bellhop/shared/clock';
 import { createLogger } from '@bellhop/shared/logger';
 import type { Logger } from '@bellhop/shared/logger';
 import Database from 'better-sqlite3';
+import { createUserQueue } from '../../src/core/queue/user-queue.js';
 import { openDatabase } from '../../src/db/open.js';
 import { createAuth, type Auth } from '../../src/auth/auth.js';
 import { migrateDb } from '../../src/db/migrate.js';
@@ -34,13 +39,22 @@ export interface TestAppSetup extends TestAuthSetup {
 }
 
 /** In-memory app + auth pair, ready to receive `app.request(...)` calls. */
+const TEST_LIMITS = { statusChecks: 3, retriesPerTool: 2 } as const;
+
 export async function setupTestApp(deps: { providerClient?: Partial<ProviderClient> } = {}): Promise<TestAppSetup> {
   const setup = await setupTestAuth();
+  const tracesDir = mkdtempSync(path.join(tmpdir(), 'bellhop-api-test-'));
+  const queue = createUserQueue({ logger: setup.logger });
   const app = createApiApp({
     auth: setup.auth,
     logger: setup.logger,
     providerClient: (deps.providerClient ?? noopProviderClient) as ProviderClient,
     webOrigin: WEB_ORIGIN,
+    db: setup.db,
+    clock: systemClock,
+    limits: TEST_LIMITS,
+    tracesDir,
+    queue,
   });
   return { ...setup, app };
 }
