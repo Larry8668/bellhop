@@ -19,3 +19,9 @@ Format:
 **Why:** `vite.config.ts` set `base: './'` (relative asset paths for the later Capacitor build). Under Vite 8 a relative base makes the dev server skip `server.proxy`, so `/api/*` fell through to the SPA fallback. Verified by starting the same config with `--base /`, which proxied correctly.
 **Fix:** `base` is `'./'` only when `command === 'build'`; dev keeps `/`. Config is exported as a function so it can be unit-tested. (`fix/vite-dev-proxy`)
 **Regression test:** `web/src/test/vite-config.test.ts › uses an absolute base in dev so the /api proxy applies`
+
+## 2. MCP API key stopped working after ~10 calls  —  2026-11-06, Phase 1
+**What broke:** Cursor connected to `/mcp` with a valid bearer key, then started getting 401s and showed an "authenticate" prompt that led nowhere (a 401 makes MCP clients attempt OAuth discovery, which we don't offer).
+**Why:** `@better-auth/api-key` enables a per-key rate limit by default: 10 verifications per 24 h, copied onto each key row at creation (`rateLimitEnabled=1, rateLimitMax=10`). Every MCP request verifies the key, so the 11th request got `RATE_LIMITED` → `verifyApiKey` invalid → 401. The server log had the 429 from the plugin; nothing was logged at the HTTP layer because a rejected key is just an unauthenticated request.
+**Fix:** `apiKey({ rateLimit: { enabled: false } })` for new keys; migration `server/db/migrations/0002_apikey_no_rate_limit.sql` clears the flag on existing keys. Request limits, if ever needed, belong at the HTTP edge, not on the credential.
+**Regression test:** `server/test/auth/principal.test.ts › keeps resolving an API key well past 10 verifications` (fails at verification #11 without the fix)

@@ -11,7 +11,7 @@ describe('migrateDb', () => {
     const db = openDatabase(':memory:', { logger });
 
     const applied = migrateDb(db, logger);
-    expect(applied.map((a) => a.name)).toEqual(['auth']);
+    expect(applied[0]?.name).toBe('auth');
     expect(migrateDb(db, logger)).toEqual([]);
 
     const tables = db
