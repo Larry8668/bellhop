@@ -24,7 +24,7 @@ describe('proposal service', () => {
     await h.close();
   });
 
-  it('H1 hash and price come from the hold, not the search price', async () => {
+  it('hash and price come from the hold, not the search price', async () => {
     h.scenario('PRICE_CHANGES_ON_HOLD');
     const proposal = await proposeBooking(h, provider);
     const hold = h.tp.engine.admin.state().holds.find((x) => x.hold_id === proposal.hold_id)!;
@@ -41,7 +41,7 @@ describe('proposal service', () => {
     expect(holdCall).toMatchObject({ type: 'tool_call', tool: 'hold_slot', ok: true });
   });
 
-  it('H9 a second proposal supersedes the first; approving the old card is rejected', async () => {
+  it('a second proposal supersedes the first; approving the old card is rejected', async () => {
     const first = await proposeBooking(h, provider, provider.slots[0]);
     const second = await proposeBooking(h, provider, provider.slots[1]);
     const repo = createProposalsRepo(h.db);

@@ -60,7 +60,7 @@ describe('approval service', () => {
     expect(h.approvals.approve(TEST_USER, input)).toEqual({ ok: false, reason: 'proposal_not_pending' });
   });
 
-  it('S12 double consume → only the first wins; consume and void are user-scoped and traced', async () => {
+  it('double consume → only the first wins; consume and void are user-scoped and traced', async () => {
     const proposal = await proposeBooking(h, provider);
     const result = h.approvals.approve(TEST_USER, { proposal_id: proposal.id, hash: proposal.hash, source: 'button' });
     if (!result.ok) throw new Error(result.reason);
