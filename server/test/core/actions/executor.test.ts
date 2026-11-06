@@ -53,7 +53,7 @@ describe('executor', () => {
   }
 
   describe('prologue — approval gate (invariant 1)', () => {
-    it('S06 a fabricated approval id is rejected with zero provider calls', async () => {
+    it('a fabricated approval id is rejected with zero provider calls', async () => {
       await proposeBooking(h, provider);
       h.calls.length = 0;
 
@@ -64,7 +64,7 @@ describe('executor', () => {
       expect(h.providerBookings()).toHaveLength(0);
     });
 
-    it('S06 another user’s approval id is rejected with zero provider calls', async () => {
+    it('another user’s approval id is rejected with zero provider calls', async () => {
       const approval = approve(h, await proposeBooking(h, provider));
       h.calls.length = 0;
 
@@ -88,7 +88,7 @@ describe('executor', () => {
   });
 
   describe('book', () => {
-    it('H2 approve → execute before expiry → booked; intent written before the provider call; legal transitions', async () => {
+    it('approve → execute before expiry → booked; intent written before the provider call; legal transitions', async () => {
       const proposal = await proposeBooking(h, provider);
       const approval = approve(h, proposal);
       const key = idempotencyKey('book', approval.id);
@@ -112,7 +112,7 @@ describe('executor', () => {
       expect(h.trace.events.find((e) => e.type === 'tool_call' && e.tool === 'book')).toMatchObject({ ok: true });
     });
 
-    it('S13 a second execute after success is a replay — one provider booking, no second book call', async () => {
+    it('a second execute after success is a replay — one provider booking, no second book call', async () => {
       const approval = approve(h, await proposeBooking(h, provider));
       h.scenario('BOOK_SUCCESS');
       const first = await h.executor.execute(TEST_USER, approval.id);
@@ -126,7 +126,7 @@ describe('executor', () => {
       expect(describeOutcome(second)).toMatch(/already done/);
     });
 
-    it('S12 two concurrent executes of one approval → one booking, the other rejected', async () => {
+    it('two concurrent executes of one approval → one booking, the other rejected', async () => {
       const approval = approve(h, await proposeBooking(h, provider));
       h.scenario('BOOK_SUCCESS');
 
@@ -141,7 +141,7 @@ describe('executor', () => {
       expect(h.providerBookings()).toHaveLength(1);
     });
 
-    it('H3 hold expired → identical re-hold → proceeds without re-asking', async () => {
+    it('hold expired → identical re-hold → proceeds without re-asking', async () => {
       const proposal = await proposeBooking(h, provider);
       const approval = approve(h, proposal);
       h.tp.clock.advance(HOLD_TTL_MS + 60_000);
@@ -158,7 +158,7 @@ describe('executor', () => {
       expect(errorEvents(h)).toEqual([]);
     });
 
-    it('S10/S11 H4/H5 hold expired + price changes on re-hold → needs_reapproval, old approval void, zero bookings', async () => {
+    it('hold expired + price changes on re-hold → needs_reapproval, old approval void, zero bookings', async () => {
       const proposal = await proposeBooking(h, provider);
       const approval = approve(h, proposal);
       h.tp.clock.advance(HOLD_TTL_MS + 60_000);
@@ -190,7 +190,7 @@ describe('executor', () => {
       expect(errorEvents(h)).toEqual([]);
     });
 
-    it('H6 hold expired and the slot was taken meanwhile → slot_gone(hold_expired), approval void, nothing booked', async () => {
+    it('hold expired and the slot was taken meanwhile → slot_gone(hold_expired), approval void, nothing booked', async () => {
       const slot = provider.slots[0]!;
       const proposal = await proposeBooking(h, provider, slot);
       const approval = approve(h, proposal);
@@ -208,7 +208,7 @@ describe('executor', () => {
       expect(h.state()).toBe('PROPOSED');
     });
 
-    it('H10 book returns hold_expired → one re-hold at the same price → booked, attempts = 2', async () => {
+    it('book returns hold_expired → one re-hold at the same price → booked, attempts = 2', async () => {
       const approval = approve(h, await proposeBooking(h, provider));
       const key = idempotencyKey('book', approval.id);
       h.scenario('HOLD_EXPIRED', 'BOOK_SUCCESS');
@@ -222,7 +222,7 @@ describe('executor', () => {
       expect(errorEvents(h)).toEqual([]);
     });
 
-    it('S09 slot_taken on book → slot_gone, intent failed, nothing booked', async () => {
+    it('slot_taken on book → slot_gone, intent failed, nothing booked', async () => {
       const proposal = await proposeBooking(h, provider);
       const approval = approve(h, proposal);
       const key = idempotencyKey('book', approval.id);
@@ -240,7 +240,7 @@ describe('executor', () => {
       expect(errorEvents(h)).toEqual([]);
     });
 
-    it('S14 timeout after the provider booked → verified via get_booking_status, exactly one booking', async () => {
+    it('timeout after the provider booked → verified via get_booking_status, exactly one booking', async () => {
       const approval = approve(h, await proposeBooking(h, provider));
       const key = idempotencyKey('book', approval.id);
       h.scenario('TIMEOUT_BOOKED');
@@ -272,7 +272,7 @@ describe('executor', () => {
       expect(h.providerBookings()).toHaveLength(1);
     });
 
-    it('S15/S16 timeouts never resolve → unconfirmed, intent unknown, the message never claims success', async () => {
+    it('timeouts never resolve → unconfirmed, intent unknown, the message never claims success', async () => {
       const approval = approve(h, await proposeBooking(h, provider));
       const key = idempotencyKey('book', approval.id);
       h.scenario('TIMEOUT_NOT_BOOKED', 'TIMEOUT_NOT_BOOKED', 'TIMEOUT_NOT_BOOKED');
