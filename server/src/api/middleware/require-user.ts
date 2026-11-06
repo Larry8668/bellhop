@@ -5,6 +5,7 @@ import { resolvePrincipal } from '../../auth/principal.js';
 
 export interface AppVariables {
   principal: Principal;
+  requestId: string;
 }
 
 /**

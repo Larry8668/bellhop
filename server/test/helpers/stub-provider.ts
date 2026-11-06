@@ -2,13 +2,19 @@ import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
-import { TOOL_CONTRACTS, USER_ID_HEADER, type ToolName } from '@bellhop/shared/contracts';
+import {
+  REQUEST_ID_HEADER,
+  TOOL_CONTRACTS,
+  USER_ID_HEADER,
+  type ToolName,
+} from '@bellhop/shared/contracts';
 
 export type StubProviderRoute = (body: unknown, userId: string) => { status: number; body: unknown };
 
 export interface StubProviderCall {
   tool: ToolName;
   userId: string;
+  requestId: string | undefined;
   body: unknown;
 }
 
@@ -42,8 +48,9 @@ export async function startStubProvider(
     const { path } = TOOL_CONTRACTS[name];
     app.post(path, async (c) => {
       const userId = c.req.header(USER_ID_HEADER) ?? '';
+      const requestId = c.req.header(REQUEST_ID_HEADER);
       const body: unknown = await c.req.json().catch(() => null);
-      calls.push({ tool: name, userId, body });
+      calls.push({ tool: name, userId, requestId, body });
       const { status, body: responseBody } = handler(body, userId);
       return new Response(JSON.stringify(responseBody), {
         status,
