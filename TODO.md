@@ -52,7 +52,7 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 - [x] `/mcp` stateless Streamable HTTP via `@hono/mcp`; tools `search_providers`, `get_provider` (fenced reviews), `list_bookings`, `whoami`
 - [x] MCP `propose_*` + elicitation approval + UI-link fallback (Phase 2 wave 3B)
 - [x] `/api/proposals` (+ approve/decline), `/api/task`, web Proposals page with hash-carrying Confirm (Phase 2 wave 3C/3D)
-- [ ] Web chat/events/facts endpoints (Phases 3–4); the UI shows "not available yet" until then
+- [ ] Web chat/events/facts endpoints (Phases 3–4); `/api/facts` is served, chat/events still show "not available yet" until the harness lands
 - [ ] Verify elicitation end-to-end from Cursor's MCP client (does it surface the confirm form? else the UI-link fallback is what users see)
 
 ## Phase 2 — Core engine (PRs #22–#30 into `feat/phase-2-core`)
@@ -86,10 +86,10 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 
 ## Phase 4 — Memory
 
-- [ ] Facts store, kinds/statuses, lint, profile.md renderer
-- [ ] Relevance selection, exclusion of forgotten/unconfirmed
-- [ ] Seed 50+ memories + long history
-- [ ] Scenarios 17–21
+- [x] Facts store, kinds/statuses, lint, profile.md renderer
+- [x] Relevance selection, exclusion of forgotten/unconfirmed
+- [x] Seed 50+ memories + long history
+- [ ] Scenarios 17–21 — S18–S21 memory assertions are in `server/test/scenarios/memory.test.ts`; S17 and the conversation half of S18 need the harness
 
 ## Phase 5 — Proactive
 

@@ -22,6 +22,7 @@ import { parseJsonBody } from './http.js';
 import { sortWebBookings } from './bookings.js';
 import { engineFor } from './engine.js';
 import { providerErrorStatus } from './provider-error.js';
+import { registerFactRoutes } from './facts.js';
 import {
   ApproveProposalBodySchema,
   PostProposalBodySchema,
@@ -169,6 +170,8 @@ export function createApiApp({
     );
     return c.json(sortWebBookings(result.bookings));
   });
+
+  registerFactRoutes(app, { auth, db, clock });
 
   app.get('/api/task', requireUser(auth), async (c) => {
     const principal = c.get('principal');

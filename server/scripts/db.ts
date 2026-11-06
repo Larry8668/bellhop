@@ -28,7 +28,7 @@ async function main(): Promise<void> {
     argv: process.argv.slice(2),
     db,
     dir: SERVER_MIGRATIONS_DIR,
-    seed: () => seedDemo(auth, logger),
+    seed: () => seedDemo(auth, logger, db),
     logger,
   });
 

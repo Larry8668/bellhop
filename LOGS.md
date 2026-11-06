@@ -117,3 +117,20 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 
 **Next**
 - Wire `notify` to the SSE stream when the API layer lands (Phase 6). The assistant message is already the record.
+## 2026-11-07 — Phase 4 memory store
+
+**Done**
+- `0004_memory.sql`: `memories` and `context_log` (plan §5, §11).
+- `server/src/memory`: user-scoped facts. Explicit remember is active and overwrites the active value for that key; inferred starts unconfirmed. Selection is active facts only — matching service/area tags, `general`, untagged prefs, or a key match — newest first, capped at 800 tokens (chars/4). Lint flags two active facts with the same key and different values. `profile.md` is rendered from the rows.
+- `/api/facts`: GET (session or API key) returns non-forgotten `{id,key,value,kind,status}`. PATCH, forget, and confirm require a browser session. An unknown id or another user's id is 404. Editing a fact makes it explicit and active.
+- Demo seed: 54 memories (plumber, electrician, `ac_servicing`, Indiranagar, plus irrelevant and forgotten/unconfirmed) and a 40-message prior conversation. Idempotent.
+- Scenarios S18 (value correction), S19 (forget), S20 (unconfirmed), S21 (cap + relevance), plus a lint test. `@bellhop/server` typecheck, lint, and tests pass (287).
+
+**Decided**
+- Tag service ids are the provider's. `ac_servicing` is the real id; `ac_service` does not match it.
+- A service or area tag constrains the fact only when the turn has that dimension. `general` and untagged prefs are included unless a tag conflicts. `logContext` refuses ids that are not active for that user. A `context_log` row written while a fact was active is left in place if the user later forgets it — the row is a record of what was sent.
+- Editing a forgotten fact (PATCH) makes it explicit and active again. Confirm does not resurrect a forgotten fact.
+- The plan's `memories.source` column is not stored. Kind, status, and tags cover what this phase selects and displays.
+
+**Next**
+- Harness wires `selectForContext`, `remember`, and `logContext` into `prepareStep` (scenario 17, and the conversation half of 18).
