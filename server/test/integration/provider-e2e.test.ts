@@ -48,7 +48,8 @@ describe('provider-client e2e (real mock provider)', () => {
 
   beforeAll(async () => {
     tp = await startTestProvider({ seed: 42, timeoutDelayMs: 100 });
-    client = createProviderClient({ baseUrl: tp.url, timeoutMs: 50, logger: silent });
+    // Generous timeout for the long happy-path chain; S09 uses its own short-timeout client.
+    client = createProviderClient({ baseUrl: tp.url, timeoutMs: 5000, logger: silent });
     admin = createProviderAdminClient({ baseUrl: tp.url });
   });
 
@@ -226,8 +227,9 @@ describe('provider-client e2e (real mock provider)', () => {
     });
 
     await admin.scenario({ outcomes: ['TIMEOUT_BOOKED'] });
+    const shortTimeoutClient = createProviderClient({ baseUrl: tp.url, timeoutMs: 50, logger: silent });
     try {
-      await client.book(primaryUser, { hold_id: holdOut.hold.hold_id, idempotency_key: 'k3' });
+      await shortTimeoutClient.book(primaryUser, { hold_id: holdOut.hold.hold_id, idempotency_key: 'k3' });
       expect.fail('expected ProviderError timeout');
     } catch (e) {
       expect(ProviderError.isProviderError(e, 'timeout')).toBe(true);
