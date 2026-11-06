@@ -279,6 +279,7 @@ export async function runTurn(deps: RunTurnDeps, input: TurnInput): Promise<Turn
           toolsTokens,
           memory: deps.memory,
           logger: log,
+          now: deps.clock.now(),
         });
         return { instructions: built.instructions, messages: built.messages };
       },

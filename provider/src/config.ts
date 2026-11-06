@@ -19,6 +19,9 @@ const envSchema = z.object({
   TIMEOUT_DELAY_MS: z.coerce.number().int().default(8000),
   /** Probability a hold's quoted price drifts from the search price (plan §4). */
   HOLD_PRICE_DRIFT_PROB: z.coerce.number().min(0).max(1).default(0.15),
+  /** Random-mode `book` outcome odds (plan §4). Set BOOK_SUCCESS_P=1 for a deterministic demo; force failures via /__admin/scenario. */
+  BOOK_SUCCESS_P: z.coerce.number().min(0).max(1).default(0.7),
+  BOOK_SLOT_TAKEN_P: z.coerce.number().min(0).max(1).default(0.15),
 });
 
 export type ProviderConfig = z.infer<typeof envSchema>;
@@ -32,6 +35,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ProviderConfig
     DB_PATH: env.DB_PATH,
     TIMEOUT_DELAY_MS: env.TIMEOUT_DELAY_MS,
     HOLD_PRICE_DRIFT_PROB: env.HOLD_PRICE_DRIFT_PROB,
+    BOOK_SUCCESS_P: env.BOOK_SUCCESS_P,
+    BOOK_SLOT_TAKEN_P: env.BOOK_SLOT_TAKEN_P,
   };
 
   const parsed = envSchema.safeParse(raw);

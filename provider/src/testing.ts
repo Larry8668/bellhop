@@ -57,6 +57,8 @@ export async function startTestProvider(opts: StartTestProviderOptions = {}): Pr
     DB_PATH: ':memory:',
     TIMEOUT_DELAY_MS: timeoutDelayMs,
     HOLD_PRICE_DRIFT_PROB: holdPriceDriftProbability,
+    BOOK_SUCCESS_P: 0.7,
+    BOOK_SLOT_TAKEN_P: 0.15,
   };
 
   const { engine, scenarios } = bootstrapProvider({
