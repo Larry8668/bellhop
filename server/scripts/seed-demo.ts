@@ -1,8 +1,10 @@
 /**
- * Seeds the demo account (plan §14: "Seeded demo account"). `seedDemo` is
- * the reusable part (used by both `npm run seed:demo` and `db:seed`); the
+ * Seeds the demo account (plan §14: "Seeded demo account") plus the Phase 4
+ * memory set and a long prior conversation (plan §11). `seedDemo` is the
+ * reusable part (used by both `npm run seed:demo` and `db:seed`); the
  * `main()` below is the standalone CLI entry point for `seed:demo`.
- * Idempotent: skips creation if the account already exists.
+ * Idempotent: a second run does not duplicate the account, memories, or
+ * messages.
  *
  * Env (CLI entry point only):
  *   DB_PATH             sqlite file path (default ./data/bellhop.db)
@@ -11,31 +13,43 @@
  *   BETTER_AUTH_URL     base URL Better Auth uses for links (default
  *                       http://localhost:3000; not reached during seeding)
  */
+import type Database from 'better-sqlite3';
 import { createLogger, type Logger } from '@bellhop/shared/logger';
 import { openSqlite } from '@bellhop/shared/sqlite';
 import { migrateDb } from '../src/db/migrate.js';
 import { createAuth, type Auth } from '../src/auth/auth.js';
+import { seedDemoHistory } from './demo-history.js';
 
 const DEMO_EMAIL = 'demo@bellhop.local';
 const DEMO_PASSWORD = 'demo-pass-123';
 const DEMO_NAME = 'Demo User';
 const INSECURE_DEFAULT_SECRET = 'dev-secret-change-me';
 
-/** Creates the demo account if it doesn't already exist; returns a human-readable result message. */
-export async function seedDemo(auth: Auth, logger: Logger): Promise<string> {
+/**
+ * Creates the demo account if it doesn't already exist, then ensures that
+ * user has 50+ memories and a long prior conversation. Both steps are
+ * idempotent: a second run does not duplicate rows.
+ */
+export async function seedDemo(auth: Auth, logger: Logger, db: Database.Database): Promise<string> {
   const context = await auth.$context;
   const existing = await context.internalAdapter.findUserByEmail(DEMO_EMAIL);
+  let userId: string;
+  let accountMessage: string;
   if (existing) {
-    logger.info({ email: DEMO_EMAIL, userId: existing.user.id }, 'demo account already exists');
-    return `demo account already exists: ${DEMO_EMAIL} (id ${existing.user.id})`;
+    userId = existing.user.id;
+    logger.info({ email: DEMO_EMAIL, userId }, 'demo account already exists');
+    accountMessage = `demo account already exists: ${DEMO_EMAIL} (id ${userId})`;
+  } else {
+    const result = await auth.api.signUpEmail({
+      body: { email: DEMO_EMAIL, password: DEMO_PASSWORD, name: DEMO_NAME },
+    });
+    userId = result.user.id;
+    logger.info({ email: result.user.email, userId }, 'demo account created');
+    accountMessage = `created demo account: ${result.user.email} (id ${userId})`;
   }
 
-  const result = await auth.api.signUpEmail({
-    body: { email: DEMO_EMAIL, password: DEMO_PASSWORD, name: DEMO_NAME },
-  });
-
-  logger.info({ email: result.user.email, userId: result.user.id }, 'demo account created');
-  return `created demo account: ${result.user.email} (id ${result.user.id})`;
+  const seeded = seedDemoHistory(db, userId, logger);
+  return `${accountMessage}; memories=${seeded.memories}; messages=${seeded.messages}`;
 }
 
 async function main(): Promise<void> {
@@ -56,7 +70,7 @@ async function main(): Promise<void> {
 
   migrateDb(db, logger);
 
-  const message = await seedDemo(auth, logger);
+  const message = await seedDemo(auth, logger, db);
   console.log(message);
   db.close();
 }
