@@ -93,9 +93,9 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 
 ## Phase 5 — Proactive
 
-- [ ] Decide polling vs webhook from provider
-- [ ] Event processor through per-user queue; replacement search; fresh approval
-- [ ] Scenario 22
+- [x] Decide polling vs webhook from provider
+- [x] Event processor through per-user queue; replacement search; fresh approval
+- [x] Scenario 22
 
 ## Phase 6 — API + Auth + UI
 

@@ -38,8 +38,25 @@ describe('eventsRepo', () => {
       created_at: '2026-01-01T00:00:00Z',
     });
 
-    repo.markProcessed(event.id);
+    expect(repo.markProcessed(event.id)).toBe(true);
+    expect(repo.markProcessed(event.id)).toBe(false);
 
     expect(repo.listUnprocessed(TEST_USER)).toEqual([]);
+  });
+
+  it('hasForBooking matches type and booking id, including already-processed rows', () => {
+    const repo = createEventsRepo(createTestDb());
+    const event = repo.insert({
+      user_id: TEST_USER,
+      type: 'provider_cancelled',
+      booking_id: 'bk_1',
+      payload: {},
+      created_at: '2026-01-01T00:00:00Z',
+    });
+    repo.markProcessed(event.id);
+
+    expect(repo.hasForBooking('provider_cancelled', 'bk_1')).toBe(true);
+    expect(repo.hasForBooking('provider_cancelled', 'bk_2')).toBe(false);
+    expect(repo.hasForBooking('other', 'bk_1')).toBe(false);
   });
 });

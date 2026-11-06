@@ -36,6 +36,8 @@ export interface BookingsRepo {
   upsert(booking: AppBooking): void;
   get(userId: string, bookingId: string): AppBooking | undefined;
   list(userId: string): AppBooking[];
+  /** Every user's rows of this status, earliest slot first. The poller scans confirmed bookings across users. */
+  listByStatus(status: BookingStatus): AppBooking[];
 }
 
 export function createBookingsRepo(db: Database.Database): BookingsRepo {
@@ -59,6 +61,7 @@ export function createBookingsRepo(db: Database.Database): BookingsRepo {
   `);
   const selectStmt = db.prepare('SELECT * FROM bookings WHERE user_id = ? AND booking_id = ?');
   const listStmt = db.prepare('SELECT * FROM bookings WHERE user_id = ? ORDER BY slot_start ASC');
+  const listByStatusStmt = db.prepare('SELECT * FROM bookings WHERE status = ? ORDER BY slot_start ASC');
 
   return {
     upsert(booking: AppBooking): void {
@@ -84,6 +87,10 @@ export function createBookingsRepo(db: Database.Database): BookingsRepo {
 
     list(userId: string): AppBooking[] {
       return (listStmt.all(userId) as BookingRow[]).map(toDomain);
+    },
+
+    listByStatus(status: BookingStatus): AppBooking[] {
+      return (listByStatusStmt.all(status) as BookingRow[]).map(toDomain);
     },
   };
 }
