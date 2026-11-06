@@ -1,0 +1,15 @@
+export const endpoints = {
+  signIn: '/api/auth/sign-in/email',
+  signUp: '/api/auth/sign-up/email',
+  signOut: '/api/auth/sign-out',
+  me: '/api/me',
+  messages: '/api/messages',
+  sendMessage: '/api/chat/send',
+  events: '/api/events',
+  approve: (proposalId: string) => `/api/proposals/${proposalId}/approve`,
+  decline: (proposalId: string) => `/api/proposals/${proposalId}/decline`,
+  facts: '/api/facts',
+  fact: (id: string) => `/api/facts/${id}`,
+  bookings: '/api/bookings',
+  apiKeys: '/api/api-keys',
+} as const;
