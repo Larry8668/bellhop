@@ -5,6 +5,7 @@ import type { Rng } from '@bellhop/shared/rng';
 import type { AdjustableClock } from './clock.js';
 import type { ProviderEngine } from './engine/engine.js';
 import { createAdminRoutes } from './http/admin.js';
+import { getRequestId, requestIdMiddleware, type RequestIdEnv } from './http/request-id.js';
 import { createToolRoutes } from './http/tools.js';
 import type { ScenarioQueue } from './scenarios.js';
 import type { TimeoutControl } from './timeouts.js';
@@ -18,23 +19,27 @@ export function createApp(deps: {
   scenarios: ScenarioQueue;
   timeouts: TimeoutControl;
   adminEnabled: boolean;
-}): Hono {
+}): Hono<RequestIdEnv> {
   const { logger, clock, rng: _rng, seed, engine, scenarios, timeouts, adminEnabled } = deps;
   void _rng;
 
-  const app = new Hono();
+  const app = new Hono<RequestIdEnv>();
   const httpLog = childLogger(logger, 'http');
+
+  app.use('*', requestIdMiddleware());
 
   app.use('*', async (c, next) => {
     const startMs = clock.nowMs();
     await next();
     const duration_ms = clock.nowMs() - startMs;
+    const request_id = getRequestId(c);
     httpLog.info(
       {
         method: c.req.method,
         path: c.req.path,
         status: c.res.status,
         duration_ms,
+        request_id,
       },
       'request',
     );

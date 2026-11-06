@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { afterEach, describe, expect, it } from 'vitest';
+import { REQUEST_ID_HEADER } from '@bellhop/shared/contracts';
 import type {
   GetProviderOutput,
   ListBookingsOutput,
@@ -64,6 +66,10 @@ describe('MCP server: list_bookings (invariant 2 — user id never comes from th
 
     expect(ctx.stub.calls).toHaveLength(2);
     for (const call of ctx.stub.calls) {
+      expect(call.requestId).toEqual(expect.any(String));
+      expect(call.requestId!.length).toBeGreaterThan(0);
+    }
+    for (const call of ctx.stub.calls) {
       expect(call.tool).toBe('list_bookings');
       expect(call.userId).not.toBe('victim');
       expect(call.userId.length).toBeGreaterThan(0);
@@ -71,6 +77,24 @@ describe('MCP server: list_bookings (invariant 2 — user id never comes from th
     }
     // Both calls were attributed to the same (real) user.
     expect(ctx.stub.calls[0]?.userId).toBe(ctx.stub.calls[1]?.userId);
+  });
+
+  it('forwards the MCP connection x-request-id to the provider stub', async () => {
+    const bookingsOutput: ListBookingsOutput = { bookings: [] };
+    ctx = await setupMcpTest({
+      list_bookings: () => ({ status: 200, body: bookingsOutput }),
+    });
+    const { apiKey } = await createApiKeyUser(ctx.apiApp);
+    const id = randomUUID();
+    const { client } = await connectMcpClient(ctx.server.baseUrl, {
+      authorization: `Bearer ${apiKey}`,
+      [REQUEST_ID_HEADER]: id,
+    });
+
+    await client.callTool({ name: 'list_bookings', arguments: {} });
+
+    expect(ctx.stub.calls).toHaveLength(1);
+    expect(ctx.stub.calls[0]?.requestId).toBe(id);
   });
 });
 

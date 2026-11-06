@@ -1,4 +1,5 @@
 import {
+  REQUEST_ID_HEADER,
   TOOL_CONTRACTS,
   ToolErrorSchema,
   USER_ID_HEADER,
@@ -10,8 +11,16 @@ import { childLogger, type Logger } from '@bellhop/shared/logger';
 import { z } from 'zod';
 import { ProviderError } from './errors.js';
 
+export type ProviderCallOptions = {
+  requestId?: string;
+};
+
 export type ProviderClient = {
-  [N in ToolName]: (userId: string, input: ToolInput<N>) => Promise<ToolOutput<N>>;
+  [N in ToolName]: (
+    userId: string,
+    input: ToolInput<N>,
+    options?: ProviderCallOptions,
+  ) => Promise<ToolOutput<N>>;
 };
 
 type FetchLike = typeof globalThis.fetch;
@@ -41,12 +50,17 @@ export function createProviderClient(opts: {
     name: N,
     userId: string,
     input: ToolInput<N>,
+    options?: ProviderCallOptions,
   ): Promise<ToolOutput<N>> {
     const contract = TOOL_CONTRACTS[name];
     const started = performance.now();
+    const request_id = options?.requestId;
 
     if (userId.length === 0) {
-      log.debug({ tool: name, status: null, latency_ms: 0, ok: false }, 'provider call');
+      log.debug(
+        { tool: name, status: null, latency_ms: 0, ok: false, request_id },
+        'provider call',
+      );
       throw new ProviderError({
         tool: name,
         code: 'unauthorized',
@@ -60,7 +74,13 @@ export function createProviderClient(opts: {
       parsedInput = contract.input.parse(input) as ToolInput<N>;
     } catch (err) {
       log.debug(
-        { tool: name, status: null, latency_ms: Math.round(performance.now() - started), ok: false },
+        {
+          tool: name,
+          status: null,
+          latency_ms: Math.round(performance.now() - started),
+          ok: false,
+          request_id,
+        },
         'provider call',
       );
       if (err instanceof z.ZodError) {
@@ -76,21 +96,28 @@ export function createProviderClient(opts: {
     }
 
     const url = joinBaseUrl(opts.baseUrl, contract.path);
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      [USER_ID_HEADER]: userId,
+    };
+    if (request_id !== undefined && request_id.length > 0) {
+      headers[REQUEST_ID_HEADER] = request_id;
+    }
     let response: Response;
     try {
       response = await fetchImpl(url, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          [USER_ID_HEADER]: userId,
-        },
+        headers,
         body: JSON.stringify(parsedInput),
         signal: AbortSignal.timeout(opts.timeoutMs),
       });
     } catch (err) {
       const latency_ms = Math.round(performance.now() - started);
       if (isAbortOrTimeout(err)) {
-        log.warn({ tool: name, status: null, latency_ms, ok: false }, 'provider timeout');
+        log.warn(
+          { tool: name, status: null, latency_ms, ok: false, request_id },
+          'provider timeout',
+        );
         throw new ProviderError({
           tool: name,
           code: 'timeout',
@@ -100,7 +127,10 @@ export function createProviderClient(opts: {
           cause: err,
         });
       }
-      log.warn({ tool: name, status: null, latency_ms, ok: false }, 'provider transient failure');
+      log.warn(
+        { tool: name, status: null, latency_ms, ok: false, request_id },
+        'provider transient failure',
+      );
       throw new ProviderError({
         tool: name,
         code: 'transient',
@@ -117,7 +147,7 @@ export function createProviderClient(opts: {
     try {
       json = text === '' ? null : JSON.parse(text);
     } catch {
-      log.debug({ tool: name, status, latency_ms, ok: false }, 'provider call');
+      log.debug({ tool: name, status, latency_ms, ok: false, request_id }, 'provider call');
       throw new ProviderError({
         tool: name,
         code: 'internal',
@@ -130,7 +160,7 @@ export function createProviderClient(opts: {
     if (response.ok) {
       const out = contract.output.safeParse(json);
       if (!out.success) {
-        log.debug({ tool: name, status, latency_ms, ok: false }, 'provider call');
+        log.debug({ tool: name, status, latency_ms, ok: false, request_id }, 'provider call');
         throw new ProviderError({
           tool: name,
           code: 'internal',
@@ -139,13 +169,13 @@ export function createProviderClient(opts: {
           details: out.error.issues,
         });
       }
-      log.debug({ tool: name, status, latency_ms, ok: true }, 'provider call');
+      log.debug({ tool: name, status, latency_ms, ok: true, request_id }, 'provider call');
       return out.data as ToolOutput<N>;
     }
 
     const toolErr = ToolErrorSchema.safeParse(json);
     if (toolErr.success) {
-      log.debug({ tool: name, status, latency_ms, ok: false }, 'provider call');
+      log.debug({ tool: name, status, latency_ms, ok: false, request_id }, 'provider call');
       throw new ProviderError({
         tool: name,
         code: toolErr.data.error.code,
@@ -167,8 +197,8 @@ export function createProviderClient(opts: {
 
   const client = {} as Record<ToolName, unknown>;
   for (const name of Object.keys(TOOL_CONTRACTS) as ToolName[]) {
-    client[name] = (userId: string, input: unknown) =>
-      call(name, userId, input as ToolInput<typeof name>);
+    client[name] = (userId: string, input: unknown, callOpts?: ProviderCallOptions) =>
+      call(name, userId, input as ToolInput<typeof name>, callOpts);
   }
   return client as ProviderClient;
 }

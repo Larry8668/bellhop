@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { RequestIdEnv } from './request-id.js';
 import type { Context } from 'hono';
 import {
   ADMIN_PATHS,
@@ -37,10 +38,10 @@ export function createAdminRoutes(deps: {
   scenarios: ScenarioQueue;
   timeouts: TimeoutControl;
   logger: Logger;
-}): Hono {
+}): Hono<RequestIdEnv> {
   const { engine, clock, scenarios, timeouts, logger } = deps;
   const log = childLogger(logger, 'http.admin');
-  const app = new Hono();
+  const app = new Hono<RequestIdEnv>();
 
   app.post(ADMIN_PATHS.reset, async (c) => {
     const parsed = AdminResetRequestSchema.safeParse(await readJsonBody(c));

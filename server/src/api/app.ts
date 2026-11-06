@@ -10,6 +10,7 @@ import type { ProviderClient } from '../provider-client/client.js';
 import { ProviderError } from '../provider-client/errors.js';
 import type { AppVariables } from './middleware/require-user.js';
 import { requireUser } from './middleware/require-user.js';
+import { getRequestId, requestIdMiddleware } from './middleware/request-id.js';
 import { sortWebBookings } from './bookings.js';
 import { providerErrorStatus } from './provider-error.js';
 
@@ -44,16 +45,25 @@ export function createApiApp({
     cors({
       origin: webOrigin,
       credentials: true,
-      allowHeaders: ['content-type', 'authorization', 'x-api-key'],
+      allowHeaders: ['content-type', 'authorization', 'x-api-key', 'x-request-id'],
     }),
   );
+
+  app.use('*', requestIdMiddleware());
 
   app.use('*', async (c, next) => {
     const startedAt = performance.now();
     await next();
     const duration_ms = performance.now() - startedAt;
+    const request_id = getRequestId(c);
     httpLog.info(
-      { method: c.req.method, path: c.req.path, status: c.res.status, duration_ms },
+      {
+        method: c.req.method,
+        path: c.req.path,
+        status: c.res.status,
+        duration_ms,
+        request_id,
+      },
       'request',
     );
   });
@@ -126,9 +136,13 @@ export function createApiApp({
   // param (coding-standards.mdc invariant 2) — the route reads nothing else.
   app.get('/api/bookings', requireUser(auth), async (c) => {
     const principal = c.get('principal');
-    const result = await providerClient.list_bookings(principal.userId, {
-      user_id: principal.userId,
-    });
+    const result = await providerClient.list_bookings(
+      principal.userId,
+      {
+        user_id: principal.userId,
+      },
+      { requestId: getRequestId(c) },
+    );
     return c.json(sortWebBookings(result.bookings));
   });
 

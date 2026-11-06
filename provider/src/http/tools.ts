@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { RequestIdEnv } from './request-id.js';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import type { Logger } from '@bellhop/shared/logger';
 import { childLogger } from '@bellhop/shared/logger';
@@ -49,12 +50,12 @@ export function createToolRoutes(deps: {
   clock: Clock;
   logger: Logger;
   timeouts: TimeoutControl;
-}): Hono {
+}): Hono<RequestIdEnv> {
   const { engine, clock: _clock, logger, timeouts } = deps;
   void _clock; // engine owns timing for business logic; kept for a uniform route-factory signature.
 
   const log = childLogger(logger, 'http.tools');
-  const app = new Hono();
+  const app = new Hono<RequestIdEnv>();
   const handlers = buildToolHandlers(engine);
 
   /** Throws (→ 500 via onError) rather than silently shipping a body the contract doesn't describe. */

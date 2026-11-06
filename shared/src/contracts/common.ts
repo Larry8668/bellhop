@@ -1,6 +1,21 @@
 import { z } from 'zod';
 
 export const USER_ID_HEADER = 'x-user-id' as const;
+export const REQUEST_ID_HEADER = 'x-request-id' as const;
+
+const REQUEST_ID_MAX_LEN = 64;
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * Returns the incoming header value only if it is safe to propagate (length,
+ * charset); otherwise `null` so the caller can mint a fresh id.
+ */
+export function parseIncomingRequestId(raw: string | undefined): string | null {
+  if (raw === undefined || raw.length === 0) return null;
+  if (raw.length > REQUEST_ID_MAX_LEN) return null;
+  if (!REQUEST_ID_PATTERN.test(raw)) return null;
+  return raw;
+}
 
 export const IsoDateTimeSchema = z.iso.datetime({ offset: true });
 export type IsoDateTime = z.infer<typeof IsoDateTimeSchema>;

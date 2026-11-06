@@ -109,9 +109,15 @@ describe('GET /api/bookings', () => {
 
     expect(res.status).toBe(200);
     expect(list_bookings).toHaveBeenCalledTimes(1);
-    const [calledUserId, calledInput] = list_bookings.mock.calls[0] as [string, { user_id: string }];
+    const call = list_bookings.mock.calls[0] as [
+      string,
+      { user_id: string },
+      { requestId?: string }?,
+    ];
+    const [calledUserId, calledInput, opts] = call;
     expect(calledUserId).not.toBe('someone-else');
     expect(calledInput.user_id).not.toBe('someone-else');
     expect(calledUserId).toBe(calledInput.user_id);
+    expect(opts?.requestId).toEqual(expect.any(String));
   });
 });
