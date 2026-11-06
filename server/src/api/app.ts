@@ -16,7 +16,9 @@ import type { ExecutionLimits } from '../core/actions/executor.js';
 import type { UserQueue } from '../core/queue/user-queue.js';
 import type { AppVariables } from './middleware/require-user.js';
 import { requireUser } from './middleware/require-user.js';
+import { requireSession } from './middleware/require-session.js';
 import { getRequestId, requestIdMiddleware } from './middleware/request-id.js';
+import { parseJsonBody } from './http.js';
 import { sortWebBookings } from './bookings.js';
 import { engineFor } from './engine.js';
 import { providerErrorStatus } from './provider-error.js';
@@ -196,75 +198,64 @@ export function createApiApp({
     }
   });
 
-  app.post('/api/proposals', requireUser(auth), async (c) => {
+  app.post('/api/proposals', requireSession(auth), async (c) => {
     const principal = c.get('principal');
     const request_id = getRequestId(c);
     const userId = principal.userId;
-    let body: z.infer<typeof PostProposalBodySchema>;
+    const parsed = await parseJsonBody(c, PostProposalBodySchema);
+    if (!parsed.ok) return parsed.response;
+    const body = parsed.body;
     try {
-      body = PostProposalBodySchema.parse(await c.req.json());
-    } catch (err) {
-      if (err instanceof ZodError) {
-        return c.json(
-          { error: { code: 'bad_request', message: err.issues[0]?.message ?? 'invalid request body' } },
-          400,
-        );
-      }
-      throw err;
-    }
-    try {
-      const engine = engineFor(c, engineDeps);
-      if (body.action === 'book') {
-        const result = await engine.proposals.proposeBooking(userId, {
-          provider_id: body.provider_id,
-          provider_name: body.provider_name,
-          service: body.service,
+      return await queue.run(userId, 'api:propose', async () => {
+        const engine = engineFor(c, engineDeps);
+        if (body.action === 'book') {
+          const result = await engine.proposals.proposeBooking(userId, {
+            provider_id: body.provider_id,
+            // The core service still requires a non-empty provider_name
+            // (gate fix item 5 drops it from this wire schema, but core
+            // isn't allowed to change in this worktree); the real name is
+            // display-only on the card and the core delegate's change makes
+            // this field optional-and-ignored, so a placeholder is harmless.
+            provider_name: body.service,
+            service: body.service,
+            slot: body.slot,
+          });
+          if (!result.ok) {
+            return c.json({ error: { code: result.code, message: result.message } }, 409);
+          }
+          return c.json({ proposal: result.proposal });
+        }
+        if (body.action === 'cancel') {
+          const result = await engine.proposals.proposeCancel(userId, { booking_id: body.booking_id });
+          if (!result.ok) {
+            return c.json({ error: { code: result.code, message: result.message } }, 409);
+          }
+          return c.json({ proposal: result.proposal });
+        }
+        const result = await engine.proposals.proposeReschedule(userId, {
+          booking_id: body.booking_id,
           slot: body.slot,
         });
         if (!result.ok) {
           return c.json({ error: { code: result.code, message: result.message } }, 409);
         }
         return c.json({ proposal: result.proposal });
-      }
-      if (body.action === 'cancel') {
-        const result = await engine.proposals.proposeCancel(userId, { booking_id: body.booking_id });
-        if (!result.ok) {
-          return c.json({ error: { code: result.code, message: result.message } }, 409);
-        }
-        return c.json({ proposal: result.proposal });
-      }
-      const result = await engine.proposals.proposeReschedule(userId, {
-        booking_id: body.booking_id,
-        slot: body.slot,
       });
-      if (!result.ok) {
-        return c.json({ error: { code: result.code, message: result.message } }, 409);
-      }
-      return c.json({ proposal: result.proposal });
     } catch (err) {
       httpLog.error({ err, request_id, userId }, 'POST /api/proposals failed');
       throw err;
     }
   });
 
-  app.post('/api/proposals/:id/approve', requireUser(auth), async (c) => {
+  app.post('/api/proposals/:id/approve', requireSession(auth), async (c) => {
     const principal = c.get('principal');
     const request_id = getRequestId(c);
     const userId = principal.userId;
     const proposal_id = c.req.param('id');
 
-    let parsedBody: z.infer<typeof ApproveProposalBodySchema>;
-    try {
-      parsedBody = ApproveProposalBodySchema.parse(await c.req.json());
-    } catch (err) {
-      if (err instanceof ZodError) {
-        return c.json(
-          { error: { code: 'bad_request', message: err.issues[0]?.message ?? 'invalid request body' } },
-          400,
-        );
-      }
-      throw err;
-    }
+    const parsed = await parseJsonBody(c, ApproveProposalBodySchema);
+    if (!parsed.ok) return parsed.response;
+    const parsedBody = parsed.body;
 
     try {
       return await queue.run(userId, 'api:approve', async () => {
@@ -323,26 +314,28 @@ export function createApiApp({
     }
   });
 
-  app.post('/api/proposals/:id/decline', requireUser(auth), async (c) => {
+  app.post('/api/proposals/:id/decline', requireSession(auth), async (c) => {
     const principal = c.get('principal');
     const request_id = getRequestId(c);
     const userId = principal.userId;
     const proposal_id = c.req.param('id');
     try {
-      const engine = engineFor(c, engineDeps);
-      const result = engine.proposals.decline(userId, proposal_id);
-      if (!result.ok && result.code === 'proposal_not_found') {
-        httpLog.warn({ request_id, userId, proposal_id }, 'POST decline: proposal not found');
-        return c.json({ error: { code: 'proposal_not_found', message: 'no such proposal' } }, 404);
-      }
-      if (!result.ok) {
-        httpLog.warn(
-          { request_id, userId, proposal_id, code: result.code },
-          'POST decline rejected',
-        );
-        return c.json({ error: { code: result.code, message: result.message } }, 409);
-      }
-      return c.json({ ok: true as const });
+      return await queue.run(userId, 'api:decline', async () => {
+        const engine = engineFor(c, engineDeps);
+        const result = engine.proposals.decline(userId, proposal_id);
+        if (!result.ok && result.code === 'proposal_not_found') {
+          httpLog.warn({ request_id, userId, proposal_id }, 'POST decline: proposal not found');
+          return c.json({ error: { code: 'proposal_not_found', message: 'no such proposal' } }, 404);
+        }
+        if (!result.ok) {
+          httpLog.warn(
+            { request_id, userId, proposal_id, code: result.code },
+            'POST decline rejected',
+          );
+          return c.json({ error: { code: result.code, message: result.message } }, 409);
+        }
+        return c.json({ ok: true as const });
+      });
     } catch (err) {
       httpLog.error({ err, request_id, userId, proposal_id }, 'POST /api/proposals/:id/decline failed');
       throw err;

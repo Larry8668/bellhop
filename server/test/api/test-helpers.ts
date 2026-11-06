@@ -107,3 +107,20 @@ export async function signUpAndSignIn(
 
   return { email, password, name, cookie };
 }
+
+/** Signs up a fresh user and mints an API key for it, for tests that exercise the API-key auth path. */
+export async function createApiKeyUser(
+  app: ReturnType<typeof createApiApp>,
+): Promise<{ user: SignedUpUser; apiKey: string }> {
+  const user = await signUpAndSignIn(app);
+  const createRes = await app.request('/api/keys', {
+    method: 'POST',
+    headers: { cookie: user.cookie, 'content-type': 'application/json' },
+    body: JSON.stringify({ name: 'test key' }),
+  });
+  if (createRes.status !== 201) {
+    throw new Error(`api key creation failed: ${createRes.status} ${await createRes.text()}`);
+  }
+  const { key } = (await createRes.json()) as { key: string };
+  return { user, apiKey: key };
+}
