@@ -1,0 +1,23 @@
+{
+  "name": "@bellhop/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@bellhop/shared": "*",
+    "@hono/node-server": "^2.0.0",
+    "ai": "^7.0.0",
+    "ai-sdk-ollama": "^4.0.0",
+    "better-sqlite3": "^13.0.0",
+    "hono": "^4.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0"
+  }
+}
