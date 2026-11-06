@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { z } from 'zod';
 import { api } from '../api/index.js';
-import type { ChatMessage, Proposal, TraceEvent } from '../api/types.js';
+import type { ChatMessage, ProposalDetail, TraceEvent } from '../api/types.js';
+import { proposalDetailSchema } from '../api/schemas.js';
 import { ApiError } from '../api/client.js';
 import { Layout } from '../components/Layout.js';
 import { ApprovalCard } from '../components/ApprovalCard.js';
@@ -11,24 +11,10 @@ import { ErrorBanner } from '../components/ErrorBanner.js';
 import { Spinner } from '../components/Spinner.js';
 import { log } from '../logger.js';
 
-const proposalDetailSchema = z.object({
-  id: z.string(),
-  action: z.enum(['book', 'cancel', 'reschedule']),
-  providerName: z.string(),
-  service: z.string(),
-  slot: z.object({
-    start: z.string(),
-    end: z.string(),
-  }),
-  price: z.number(),
-  currency: z.literal('INR'),
-  expiresAt: z.string(),
-});
-
 export function Chat(): React.ReactElement {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
-  const [pending, setPending] = useState<Proposal | null>(null);
+  const [pending, setPending] = useState<ProposalDetail | null>(null);
   const [trace, setTrace] = useState<TraceEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -51,9 +37,30 @@ export function Chat(): React.ReactElement {
     }
   }, []);
 
+  const loadPendingProposal = useCallback(async (): Promise<void> => {
+    try {
+      const list = await api.listProposals();
+      const candidates = list.filter((p) => p.status === 'pending' && !p.expired);
+      if (candidates.length === 0) {
+        setPending(null);
+        return;
+      }
+      const next = candidates.reduce((best, p) =>
+        p.updated_at >= best.updated_at ? p : best,
+      );
+      setPending(next);
+    } catch (err) {
+      log.error({ err }, 'list proposals failed');
+    }
+  }, []);
+
   useEffect(() => {
     void loadMessages();
   }, [loadMessages]);
+
+  useEffect(() => {
+    void loadPendingProposal();
+  }, [loadPendingProposal]);
 
   useEffect(() => {
     const off = api.streamEvents((e) => {
@@ -82,6 +89,7 @@ export function Chat(): React.ReactElement {
       await api.sendMessage(text);
       const list = await api.listMessages();
       setMessages(list);
+      await loadPendingProposal();
     } catch (err) {
       log.error({ err }, 'send message failed');
       const message =
@@ -95,7 +103,7 @@ export function Chat(): React.ReactElement {
     setActionBusy(true);
     setSendError(null);
     try {
-      await api.approve(pending.id);
+      await api.approve(pending.id, pending.hash);
       setPending(null);
       const list = await api.listMessages();
       setMessages(list);

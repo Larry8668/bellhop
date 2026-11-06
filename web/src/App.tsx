@@ -5,6 +5,7 @@ import { Bookings } from './pages/Bookings.js';
 import { Chat } from './pages/Chat.js';
 import { Login } from './pages/Login.js';
 import { Profile } from './pages/Profile.js';
+import { Proposals } from './pages/Proposals.js';
 
 export function App(): React.ReactElement {
   return (
@@ -32,6 +33,22 @@ export function App(): React.ReactElement {
           element={
             <RequireAuth>
               <Bookings />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/proposals"
+          element={
+            <RequireAuth>
+              <Proposals />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/proposals/:id"
+          element={
+            <RequireAuth>
+              <Proposals />
             </RequireAuth>
           }
         />

@@ -15,6 +15,7 @@ export interface ChatMessage {
 
 export type ProposalAction = 'book' | 'cancel' | 'reschedule';
 
+/** Legacy chat-oriented shape; prefer `ProposalDetail` for API-backed UI. */
 export interface Proposal {
   id: string;
   action: ProposalAction;
@@ -24,6 +25,70 @@ export interface Proposal {
   price: number;
   currency: 'INR';
   expiresAt: string;
+}
+
+/** Server row from proposals APIs (snake_case as returned). */
+export interface ProposalDetail {
+  id: string;
+  user_id: string;
+  action: ProposalAction;
+  provider_id: string;
+  provider_name: string;
+  service: string;
+  slot: { start: string; end: string };
+  price: number;
+  currency: string;
+  booking_id: string | null;
+  hold_id: string | null;
+  hold_expires_at: string;
+  hash: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  expired: boolean;
+}
+
+export type ExecutionOutcomeKind =
+  | 'booked'
+  | 'cancelled'
+  | 'rescheduled'
+  | 'needs_reapproval'
+  | 'slot_gone'
+  | 'unconfirmed'
+  | 'rejected'
+  | 'failed';
+
+export type ExecutionOutcome = {
+  kind: ExecutionOutcomeKind;
+} & Record<string, unknown>;
+
+export type TaskState = {
+  state: string;
+  service?: unknown;
+  area?: unknown;
+  window_from?: unknown;
+  window_to?: unknown;
+  budget?: unknown;
+} & Record<string, unknown>;
+
+export type CreateProposalInput =
+  | {
+      action: 'book';
+      provider_id: string;
+      provider_name: string;
+      service: string;
+      slot: { start: string; end: string };
+    }
+  | { action: 'cancel'; booking_id: string }
+  | {
+      action: 'reschedule';
+      booking_id: string;
+      slot: { start: string; end: string };
+    };
+
+export interface ApproveResponse {
+  outcome: ExecutionOutcome;
+  message: string;
 }
 
 export interface TraceEvent {
