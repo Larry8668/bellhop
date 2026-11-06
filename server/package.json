@@ -15,6 +15,7 @@
     "db:migrate": "tsx scripts/db.ts up",
     "db:rollback": "tsx scripts/db.ts down",
     "db:status": "tsx scripts/db.ts status",
+    "db:stamp": "tsx scripts/db.ts stamp",
     "db:seed": "tsx scripts/db.ts seed",
     "db:reset": "tsx scripts/db.ts reset"
   },

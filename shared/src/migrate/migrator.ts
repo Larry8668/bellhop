@@ -115,6 +115,28 @@ export function createMigrator(deps: CreateMigratorDeps): Migrator {
     return result;
   }
 
+  /**
+   * Mark migrations up to `version` as applied WITHOUT running them — for
+   * adopting a database whose schema was created before the migration
+   * files existed (alembic's `stamp`). Only the ledger is written.
+   */
+  function stamp(version: string): AppliedMigration[] {
+    if (!migrations.some((m) => m.version === version)) {
+      throw new Error(`stamp: no migration with version ${version} in ${dir}`);
+    }
+    const appliedVersions = new Set(appliedRows().map((a) => a.version));
+    const toStamp = migrations.filter((m) => m.version <= version && !appliedVersions.has(m.version));
+    const appliedAt = clock.now().toISOString();
+
+    const stampTxn = db.transaction(() => {
+      for (const m of toStamp) insertApplied.run(m.version, m.name, appliedAt);
+    });
+    stampTxn();
+
+    for (const m of toStamp) log.info({ version: m.version, name: m.name }, `stamped ${m.version}_${m.name}`);
+    return toStamp.map((m) => ({ version: m.version, name: m.name, appliedAt }));
+  }
+
   function status() {
     const applied = appliedRows().sort((a, b) => a.version.localeCompare(b.version));
     const appliedVersions = new Set(applied.map((a) => a.version));
@@ -140,5 +162,5 @@ export function createMigrator(deps: CreateMigratorDeps): Migrator {
     return up();
   }
 
-  return { up, down, status, reset };
+  return { up, down, status, reset, stamp };
 }

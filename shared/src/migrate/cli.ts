@@ -18,7 +18,7 @@ export interface MigrationCliResult {
   exitCode: number;
 }
 
-const USAGE = 'usage: <up|down [n]|status|reset|seed>';
+const USAGE = 'usage: <up|down [n]|status|reset|seed|stamp <version>>';
 
 function formatStatusTable(applied: AppliedMigration[], pending: PendingMigration[]): string[] {
   const rows = [
@@ -90,6 +90,17 @@ export async function runMigrationCli(deps: RunMigrationCliDeps): Promise<Migrat
     }
     case 'seed':
       return runSeed(db, seed);
+    case 'stamp': {
+      const version = rest[0];
+      if (!version) {
+        return { output: [USAGE, 'stamp requires a version, e.g. stamp 0001'], exitCode: 1 };
+      }
+      const stamped = migrator.stamp(version);
+      return {
+        output: stamped.length === 0 ? ['nothing to stamp'] : stamped.map((a) => `stamped ${a.version}_${a.name}`),
+        exitCode: 0,
+      };
+    }
     case 'reset': {
       migrator.reset();
       const seedResult = await runSeed(db, seed);

@@ -98,6 +98,21 @@ describe('createMigrator', () => {
     expect(() => createMigrator({ db, dir, logger })).toThrow(/duplicate migration version "0001"/);
   });
 
+  it('stamp records migrations up to a version without running them, and up() continues from there', () => {
+    writeMigration(dir, '0001_first.sql', '-- migrate:up\nCREATE TABLE first (id TEXT PRIMARY KEY);\n-- migrate:down\nDROP TABLE first;\n');
+    writeMigration(dir, '0002_second.sql', '-- migrate:up\nCREATE TABLE second (id TEXT PRIMARY KEY);\n-- migrate:down\nDROP TABLE second;\n');
+    // A db whose schema pre-dates the migration files: `first` already exists.
+    db.exec('CREATE TABLE first (id TEXT PRIMARY KEY);');
+    const migrator = createMigrator({ db, dir, logger });
+
+    expect(() => migrator.up()).toThrow(/0001_first failed/);
+    expect(migrator.stamp('0001').map((a) => a.version)).toEqual(['0001']);
+    expect(migrator.status().pending.map((p) => p.version)).toEqual(['0002']);
+    expect(migrator.up().map((a) => a.version)).toEqual(['0002']);
+    expect(migrator.stamp('0002')).toEqual([]);
+    expect(() => migrator.stamp('9999')).toThrow(/no migration with version 9999/);
+  });
+
   it('a migration with no "-- migrate:down" section refuses down', () => {
     writeMigration(dir, '0001_irreversible.sql', '-- migrate:up\nCREATE TABLE first (id TEXT PRIMARY KEY);\n');
 
