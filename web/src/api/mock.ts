@@ -1,11 +1,14 @@
 import type { Api, ChatStreamEvent } from './contract.js';
 import type {
   ApiKey,
+  ApproveResponse,
   Booking,
   ChatMessage,
   CreateApiKeyResult,
+  CreateProposalInput,
   Fact,
-  Proposal,
+  ProposalDetail,
+  TaskState,
   User,
 } from './types.js';
 
@@ -35,19 +38,76 @@ const messages: ChatMessage[] = [
   },
 ];
 
-let pendingProposal: Proposal | null = {
-  id: 'prop-seed',
-  action: 'book',
-  providerName: 'QuickFix Plumbing',
-  service: 'Leak repair',
-  slot: {
-    start: new Date(Date.UTC(2026, 0, 12, 10, 0, 0)).toISOString(),
-    end: new Date(Date.UTC(2026, 0, 12, 12, 0, 0)).toISOString(),
-  },
-  price: 1800,
-  currency: 'INR',
-  expiresAt: new Date(Date.UTC(2026, 0, 11, 23, 59, 59)).toISOString(),
-};
+let proposalSeq = 1;
+
+function nextProposalId(): string {
+  proposalSeq += 1;
+  return `prop-${proposalSeq}`;
+}
+
+function mockHash(p: Pick<ProposalDetail, 'action' | 'provider_id' | 'slot' | 'price' | 'booking_id'>): string {
+  return `mock_hash_${p.action}_${p.provider_id}_${p.slot.start}_${p.slot.end}_${p.price}_${p.booking_id ?? 'none'}`;
+}
+
+function buildProposal(
+  partial: Omit<ProposalDetail, 'hash' | 'created_at' | 'updated_at' | 'user_id' | 'status'> &
+    Partial<
+      Pick<
+        ProposalDetail,
+        'user_id' | 'status' | 'created_at' | 'updated_at' | 'hash'
+      >
+    >,
+): ProposalDetail {
+  const user_id = partial.user_id ?? user?.id ?? 'user-demo';
+  const now = isoNow();
+  const computedHash = mockHash({
+    action: partial.action,
+    provider_id: partial.provider_id,
+    slot: partial.slot,
+    price: partial.price,
+    booking_id: partial.booking_id,
+  });
+  const row: ProposalDetail = {
+    id: partial.id,
+    user_id,
+    action: partial.action,
+    provider_id: partial.provider_id,
+    provider_name: partial.provider_name,
+    service: partial.service,
+    slot: partial.slot,
+    price: partial.price,
+    currency: partial.currency,
+    booking_id: partial.booking_id,
+    hold_id: partial.hold_id,
+    hold_expires_at: partial.hold_expires_at,
+    status: partial.status ?? 'pending',
+    created_at: partial.created_at ?? now,
+    updated_at: partial.updated_at ?? now,
+    expired: partial.expired,
+    hash: partial.hash ?? computedHash,
+  };
+  return row;
+}
+
+const proposals: ProposalDetail[] = [
+  buildProposal({
+    id: 'prop-seed',
+    action: 'book',
+    provider_id: 'prov-quickfix',
+    provider_name: 'QuickFix Plumbing',
+    service: 'Leak repair',
+    slot: {
+      start: new Date(Date.UTC(2026, 0, 12, 10, 0, 0)).toISOString(),
+      end: new Date(Date.UTC(2026, 0, 12, 12, 0, 0)).toISOString(),
+    },
+    price: 1800,
+    currency: 'INR',
+    booking_id: null,
+    hold_id: 'hold-seed',
+    hold_expires_at: new Date(Date.UTC(2026, 0, 11, 23, 59, 59)).toISOString(),
+    expired: false,
+  }),
+];
 
 const facts: Fact[] = [
   {
@@ -164,13 +224,18 @@ function stopTraceLoop(): void {
   traceTimer = null;
 }
 
+function firstPendingProposal(): ProposalDetail | undefined {
+  return proposals.find((p) => p.status === 'pending' && !p.expired);
+}
+
 function emitProposalState(): void {
-  if (pendingProposal) {
+  const pending = firstPendingProposal();
+  if (pending) {
     emit({
       ts: isoNow(),
       type: 'proposal_pending',
-      summary: `Pending ${pendingProposal.action} for ${pendingProposal.providerName}`,
-      detail: pendingProposal,
+      summary: `Pending ${pending.action} for ${pending.provider_name}`,
+      detail: pending,
     });
   } else {
     emit({
@@ -231,19 +296,26 @@ export const mockApi: Api = {
     messages.push(assistant);
 
     if (trimmed.toLowerCase().includes('book')) {
-      pendingProposal = {
-        id: `prop-${messageSeq}`,
-        action: 'book',
-        providerName: 'PipeRight Co.',
-        service: 'Plumber visit',
-        slot: {
-          start: new Date(Date.UTC(2026, 0, 13, 9, 30, 0)).toISOString(),
-          end: new Date(Date.UTC(2026, 0, 13, 11, 30, 0)).toISOString(),
-        },
-        price: 2100,
-        currency: 'INR',
-        expiresAt: new Date(Date.UTC(2026, 0, 13, 12, 0, 0)).toISOString(),
-      };
+      const slotStart = new Date(Date.UTC(2026, 0, 13, 9, 30, 0)).toISOString();
+      const slotEnd = new Date(Date.UTC(2026, 0, 13, 11, 30, 0)).toISOString();
+      const holdExpires = new Date(Date.UTC(2026, 0, 13, 12, 0, 0)).toISOString();
+      const id = nextProposalId();
+      proposals.push(
+        buildProposal({
+          id,
+          action: 'book',
+          provider_id: 'prov-piperight',
+          provider_name: 'PipeRight Co.',
+          service: 'Plumber visit',
+          slot: { start: slotStart, end: slotEnd },
+          price: 2100,
+          currency: 'INR',
+          booking_id: null,
+          hold_id: `hold-${id}`,
+          hold_expires_at: holdExpires,
+          expired: false,
+        }),
+      );
       emitProposalState();
     }
 
@@ -263,11 +335,143 @@ export const mockApi: Api = {
     };
   },
 
-  approve: async (proposalId: string): Promise<void> => {
-    if (!pendingProposal || pendingProposal.id !== proposalId) {
+  listProposals: async (): Promise<ProposalDetail[]> => [...proposals],
+
+  createProposal: async (input: CreateProposalInput): Promise<ProposalDetail> => {
+    const id = nextProposalId();
+    const holdExpires = new Date(Date.UTC(2026, 0, 20, 12, 0, 0)).toISOString();
+    if (input.action === 'book') {
+      const row = buildProposal({
+        id,
+        action: 'book',
+        provider_id: input.provider_id,
+        provider_name: input.provider_name,
+        service: input.service,
+        slot: input.slot,
+        price: 1999,
+        currency: 'INR',
+        booking_id: null,
+        hold_id: `hold-${id}`,
+        hold_expires_at: holdExpires,
+        expired: false,
+      });
+      proposals.push(row);
+      emitProposalState();
+      return row;
+    }
+    if (input.action === 'cancel') {
+      const row = buildProposal({
+        id,
+        action: 'cancel',
+        provider_id: 'na',
+        provider_name: '—',
+        service: 'Cancel booking',
+        slot: { start: isoNow(), end: isoNow() },
+        price: 0,
+        currency: 'INR',
+        booking_id: input.booking_id,
+        hold_id: null,
+        hold_expires_at: holdExpires,
+        expired: false,
+      });
+      proposals.push(row);
+      emitProposalState();
+      return row;
+    }
+    const row = buildProposal({
+      id,
+      action: 'reschedule',
+      provider_id: 'na',
+      provider_name: '—',
+      service: 'Reschedule',
+      slot: input.slot,
+      price: 0,
+      currency: 'INR',
+      booking_id: input.booking_id,
+      hold_id: null,
+      hold_expires_at: holdExpires,
+      expired: false,
+    });
+    proposals.push(row);
+    emitProposalState();
+    return row;
+  },
+
+  approve: async (proposalId: string, hash: string): Promise<ApproveResponse> => {
+    const idx = proposals.findIndex((p) => p.id === proposalId);
+    if (idx < 0) {
       throw new Error('No matching pending proposal');
     }
-    pendingProposal = null;
+    const current = proposals[idx]!;
+    if (current.status !== 'pending') {
+      throw new Error('Proposal is not pending');
+    }
+    if (current.hash !== hash) {
+      throw new Error('Hash mismatch');
+    }
+
+    // Dev toggles for outcome shapes (used by page tests via hash fixtures).
+    if (hash === 'hash-needs-reapproval') {
+      proposals.splice(idx, 1);
+      const replacementId = nextProposalId();
+      const replacement = buildProposal({
+        id: replacementId,
+        action: 'book',
+        provider_id: current.provider_id,
+        provider_name: current.provider_name,
+        service: current.service,
+        slot: {
+          start: new Date(Date.UTC(2026, 0, 14, 10, 0, 0)).toISOString(),
+          end: new Date(Date.UTC(2026, 0, 14, 12, 0, 0)).toISOString(),
+        },
+        price: current.price + 100,
+        currency: current.currency,
+        booking_id: null,
+        hold_id: `hold-${replacementId}`,
+        hold_expires_at: new Date(Date.UTC(2026, 0, 20, 12, 0, 0)).toISOString(),
+        expired: false,
+      });
+      proposals.push(replacement);
+      emitProposalState();
+      emit({
+        ts: isoNow(),
+        type: 'proposal_resolved',
+        summary: 'Needs re-approval',
+        detail: { proposalId, outcome: 'needs_reapproval' },
+      });
+      return {
+        outcome: { kind: 'needs_reapproval', proposal_id: replacement.id },
+        message: 'Terms changed — please review the updated proposal.',
+      };
+    }
+
+    if (hash === 'hash-slot-gone') {
+      proposals.splice(idx, 1);
+      emitProposalState();
+      return {
+        outcome: {
+          kind: 'slot_gone',
+          alternatives: [
+            {
+              start: new Date(Date.UTC(2026, 0, 16, 9, 0, 0)).toISOString(),
+              end: new Date(Date.UTC(2026, 0, 16, 11, 0, 0)).toISOString(),
+            },
+          ],
+        },
+        message: 'That slot was taken. Here are alternatives.',
+      };
+    }
+
+    if (hash === 'hash-unconfirmed') {
+      proposals.splice(idx, 1);
+      emitProposalState();
+      return {
+        outcome: { kind: 'unconfirmed', hold_id: current.hold_id },
+        message: 'Booking status unclear — we are still verifying.',
+      };
+    }
+
+    proposals.splice(idx, 1);
     emit({
       ts: isoNow(),
       type: 'proposal_resolved',
@@ -275,13 +479,18 @@ export const mockApi: Api = {
       detail: { proposalId },
     });
     emitProposalState();
+    return {
+      outcome: { kind: 'booked', booking_id: `bk-${proposalId}` },
+      message: 'Booked (mock).',
+    };
   },
 
   decline: async (proposalId: string): Promise<void> => {
-    if (!pendingProposal || pendingProposal.id !== proposalId) {
+    const idx = proposals.findIndex((p) => p.id === proposalId);
+    if (idx < 0) {
       throw new Error('No matching pending proposal');
     }
-    pendingProposal = null;
+    proposals.splice(idx, 1);
     emit({
       ts: isoNow(),
       type: 'proposal_resolved',
@@ -289,6 +498,17 @@ export const mockApi: Api = {
       detail: { proposalId },
     });
     emitProposalState();
+  },
+
+  getTask: async (): Promise<TaskState | null> => {
+    return {
+      state: 'COMPARING',
+      service: 'Plumber',
+      area: 'Indiranagar',
+      window_from: new Date(Date.UTC(2026, 0, 12, 8, 0, 0)).toISOString(),
+      window_to: new Date(Date.UTC(2026, 0, 12, 12, 0, 0)).toISOString(),
+      budget: 2500,
+    };
   },
 
   listFacts: async (): Promise<Fact[]> => [...facts],
@@ -337,6 +557,12 @@ export function __setMockUserForTests(next: User | null): void {
   user = next;
 }
 
+/** Test-only: replace the in-memory proposals list (Vitest). */
+export function __setProposalsForTests(next: ProposalDetail[]): void {
+  proposals.length = 0;
+  proposals.push(...next);
+}
+
 export function __resetMockApiForTests(): void {
   streamListeners.clear();
   stopTraceLoop();
@@ -346,6 +572,7 @@ export function __resetMockApiForTests(): void {
     name: 'Demo User',
   };
   messageSeq = 3;
+  proposalSeq = 1;
   messages.length = 0;
   messages.push(
     {
@@ -361,19 +588,26 @@ export function __resetMockApiForTests(): void {
       createdAt: new Date(Date.UTC(2026, 0, 10, 9, 0, 5)).toISOString(),
     },
   );
-  pendingProposal = {
-    id: 'prop-seed',
-    action: 'book',
-    providerName: 'QuickFix Plumbing',
-    service: 'Leak repair',
-    slot: {
-      start: new Date(Date.UTC(2026, 0, 12, 10, 0, 0)).toISOString(),
-      end: new Date(Date.UTC(2026, 0, 12, 12, 0, 0)).toISOString(),
-    },
-    price: 1800,
-    currency: 'INR',
-    expiresAt: new Date(Date.UTC(2026, 0, 11, 23, 59, 59)).toISOString(),
-  };
+  proposals.length = 0;
+  proposals.push(
+    buildProposal({
+      id: 'prop-seed',
+      action: 'book',
+      provider_id: 'prov-quickfix',
+      provider_name: 'QuickFix Plumbing',
+      service: 'Leak repair',
+      slot: {
+        start: new Date(Date.UTC(2026, 0, 12, 10, 0, 0)).toISOString(),
+        end: new Date(Date.UTC(2026, 0, 12, 12, 0, 0)).toISOString(),
+      },
+      price: 1800,
+      currency: 'INR',
+      booking_id: null,
+      hold_id: 'hold-seed',
+      hold_expires_at: new Date(Date.UTC(2026, 0, 11, 23, 59, 59)).toISOString(),
+      expired: false,
+    }),
+  );
   facts.length = 0;
   facts.push(
     {
