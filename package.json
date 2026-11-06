@@ -5,12 +5,13 @@
   "type": "module",
   "description": "An errand agent that never books without your say-so.",
   "workspaces": [
+    "shared",
     "provider",
-    "server",
-    "web"
+    "server"
   ],
   "scripts": {
-    "prepare": "husky",
+    "prepare": "husky && npm run build -w shared",
+    "build": "node scripts/run-ws.mjs build",
     "lint": "node scripts/run-ws.mjs lint",
     "test": "node scripts/run-ws.mjs test",
     "typecheck": "node scripts/run-ws.mjs typecheck"
@@ -18,7 +19,14 @@
   "devDependencies": {
     "@commitlint/cli": "^20.0.0",
     "@commitlint/config-conventional": "^20.0.0",
-    "husky": "^9.1.7"
+    "@eslint/js": "^10.0.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.0.0",
+    "husky": "^9.1.7",
+    "tsx": "^4.0.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^5.0.0"
   },
   "engines": {
     "node": ">=24"
