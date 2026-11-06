@@ -19,7 +19,7 @@ import { proposalHash } from '../approvals/hash.js';
 import { newId } from '../ids.js';
 import { createBookingsRepo, createProposalsRepo, createTaskStateRepo } from '../repo/index.js';
 import { canTransition, type StateMachine } from '../state/machine.js';
-import type { AppBooking, Proposal } from '../types.js';
+import type { AppBooking, Proposal, TaskStateName } from '../types.js';
 
 /**
  * Card text (name, service) comes from `get_provider`, never from the model.
@@ -99,9 +99,23 @@ export function createProposalService(deps: ProposalServiceDeps): ProposalServic
     return taskStateRepo.get(userId)?.state ?? 'GATHERING';
   }
 
+  /** Plan §6: a terminal state means the previous errand is over; a new proposal starts a new one via GATHERING. */
+  function isTerminal(state: TaskStateName): boolean {
+    return state === 'DONE' || state === 'FAILED' || state === 'LIMIT_EXCEEDED';
+  }
+
   function canEnterProposed(userId: string): boolean {
     const state = currentState(userId);
+    if (isTerminal(state)) return canTransition(state, 'GATHERING');
     return state === 'PROPOSED' || canTransition(state, 'PROPOSED');
+  }
+
+  /** Must run inside the persisting transaction so the extra edge and the proposal land together. */
+  function enterProposed(userId: string, reason: string): void {
+    const state = currentState(userId);
+    if (state === 'PROPOSED') return;
+    if (isTerminal(state)) stateMachine.transition(userId, 'GATHERING', 'new errand after a finished one');
+    stateMachine.transition(userId, 'PROPOSED', reason);
   }
 
   function invalidState(userId: string): ProposeResult {
@@ -139,9 +153,7 @@ export function createProposalService(deps: ProposalServiceDeps): ProposalServic
     db.transaction(() => {
       const superseded = proposalsRepo.supersedePending(proposal.user_id, proposal.id, now);
       proposalsRepo.insert(proposal);
-      if (currentState(proposal.user_id) !== 'PROPOSED') {
-        stateMachine.transition(proposal.user_id, 'PROPOSED', `${proposal.action} proposal created`);
-      }
+      enterProposed(proposal.user_id, `${proposal.action} proposal created`);
       log.info(
         { userId: proposal.user_id, proposalId: proposal.id, action: proposal.action, superseded },
         'proposal created',
