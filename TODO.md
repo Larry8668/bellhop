@@ -13,6 +13,7 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 - [ ] TS config, Vitest, `better-sqlite3`, zod
 - [ ] `server/src/config.ts` (model, limits, budgets, provider URL)
 - [ ] Trace writer skeleton (JSONL)
+- [ ] Logger module (pino, child loggers per module, `LOG_LEVEL`, run_id/turn_id correlation) shared by provider + server
 - [ ] Ollama smoke test via `ai-sdk-ollama` (`think: false`, `num_ctx: 8192`, `reliableToolCalling: false`)
 - [ ] Mock-model smoke test (`MockLanguageModelV4` + `ToolLoopAgent`)
 - [ ] README skeleton, `BUGS.md`

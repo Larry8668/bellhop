@@ -22,6 +22,8 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 - Better Auth stays (email + password) for user segregation; needed for MCP anyway.
 - Monorepo with npm workspaces; docker-compose runs provider + server + web; Ollama stays on host (no Metal in Docker on Mac).
 - `LOGS.md` replaces the draft plan's `NOTES.md`. Root-level deliverable files; `docs/` for plan and transcripts.
+- Plan v2 signed off.
+- Separate structured logger (pino) alongside the trace writer; trace is the deliverable, logs are for debugging, correlated by `run_id`/`turn_id`.
 
 **Next**
 - Plan sign-off, then Phase 0.

@@ -259,6 +259,18 @@ JSONL per run in `traces/`:
 - UI trace panel streams the same events beside the chat.
 - One full timeout-after-success run committed to `traces/`.
 
+**Trace vs. log — two different things:**
+
+| | Trace (`trace/`) | Logger (`logger.ts`, shared by `provider/` and `server/`) |
+|---|---|---|
+| Purpose | Deliverable: what the agent did in a run | Debugging: how the code behaved |
+| Content | State transitions, model calls, tool calls, approvals, intents, errors (sanitized) | HTTP requests, DB ops, retries, timings, stack traces, anything useful |
+| Shape | One JSONL file per run, fixed schema | Structured JSON (pino) with module-scoped child loggers, pretty in dev |
+| Correlation | `run_id`, `turn_id` | Same `run_id`/`turn_id` fields so a log line can be matched to a trace event |
+| Level control | none (always on) | `LOG_LEVEL` env |
+
+The logger never replaces a trace event, and a trace event never carries secrets or raw review text.
+
 ---
 
 ## 14. API, auth, UI
