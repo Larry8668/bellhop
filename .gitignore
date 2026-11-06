@@ -1,0 +1,30 @@
+# Private reference material — never commit
+docs/internal/
+
+# OS
+.DS_Store
+
+# Node
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Local data
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-*
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
