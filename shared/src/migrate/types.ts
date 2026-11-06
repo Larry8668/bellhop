@@ -30,6 +30,8 @@ export interface Migrator {
   status(): MigrationStatus;
   /** Reverts the reversible suffix of applied migrations, then re-applies everything (+ reseed, via `runMigrationCli`). */
   reset(): AppliedMigration[];
+  /** Record migrations up to `version` as applied without running them (adopt an existing db). */
+  stamp(version: string): AppliedMigration[];
 }
 
 export interface CreateMigratorDeps {

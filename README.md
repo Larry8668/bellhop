@@ -64,6 +64,7 @@ npm run db:rollback -w provider  # revert the most recent migration (or `tsx scr
 npm run db:status -w provider    # table of applied/pending migrations
 npm run db:seed -w provider      # seed data (providers, or the demo account on server) — skips if already seeded
 npm run db:reset -w provider     # revert everything reversible, re-migrate, reseed — a fresh db for testing
+npm run db:stamp -w server -- 0001   # adopt a db created before migrations existed: mark ≤0001 applied without running
 # same five with `-w server`
 ```
 
