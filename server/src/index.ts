@@ -1,5 +1,8 @@
+import { systemClock } from '@bellhop/shared/clock';
 import { createLogger } from '@bellhop/shared/logger';
 import { loadConfig } from './config.js';
+import { resolvePendingIntents } from './core/recovery/resolve-intents.js';
+import { createTraceWriter } from './trace/writer.js';
 import { openDatabase } from './db/open.js';
 import { createAuth } from './auth/auth.js';
 import { migrateDb } from './db/migrate.js';
@@ -36,6 +39,20 @@ const providerClient = createProviderClient({
   timeoutMs: config.PROVIDER_TIMEOUT_MS,
   logger,
 });
+
+// Plan §8: resolve every pending/unknown intent before accepting a single turn.
+const recovery = await resolvePendingIntents({
+  db,
+  clock: systemClock,
+  providerClient,
+  trace: createTraceWriter({
+    dir: config.TRACES_DIR,
+    runId: `recovery_${systemClock.now().toISOString().replace(/[:.]/g, '-')}`,
+    clock: systemClock,
+  }),
+  logger,
+});
+logger.info(recovery, 'startup recovery finished');
 
 const app = createApiApp({ auth, logger, providerClient, webOrigin: config.WEB_ORIGIN });
 app.route('/', createMcpApp({ auth, providerClient, logger }));
