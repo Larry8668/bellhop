@@ -1,0 +1,38 @@
+---
+description: Coding standards and the non-negotiable invariants for Bellhop
+alwaysApply: true
+---
+
+# Coding standards
+
+## Invariants (plan §2) — never violate, always test
+
+1. The LLM never calls `book`, `cancel`, or `reschedule`. It calls read-only tools and `propose_*` only. Execution runs in core code gated by an approval row that only the user can create.
+2. `user_id` comes from the session or API key, never from the model, tool arguments, or request body.
+3. One source of truth for workflow state: `task_state`, `proposals`, `approvals`, `intents`. No framework snapshots, no in-memory state that matters after a restart.
+
+## Style
+
+- Modular: one concern per module; core logic has no HTTP, UI, or LLM imports.
+- Reuse: shared helpers over copy-paste; zod schemas defined once and reused for validation and types.
+- Error handling: never swallow; wrap with context and rethrow, or convert to a user-facing outcome. Every failure path ends in a message to the user.
+- Logging: shared `logger` with a child per module; include `run_id` / `turn_id` when available. No `console.*`. Never log secrets, session tokens, or raw provider free text.
+- Determinism: inject `clock` and `rng`; no `Date.now()` / `Math.random()` in core or provider engine.
+- Boundaries: zod-validate every HTTP request, provider response, tool argument, and MCP input.
+- Comments: only where the code can't say it — a non-obvious decision, a spec reference (`plan §7`), a trap. No comments that restate the code.
+- Tests: Vitest, offline, assert outcomes and invariants, named with scenario ids where applicable.
+
+```ts
+// ❌ swallowed, untyped, real clock
+try { await provider.book(holdId, key); } catch {}
+const expired = Date.now() > hold.expiresAt;
+
+// ✅ typed, logged, injected
+try {
+  return await provider.book(holdId, key);
+} catch (err) {
+  log.error({ err, holdId, runId }, 'book failed');
+  throw new ProviderError('book', { cause: err });
+}
+const expired = clock.now() > hold.expiresAt;
+```
