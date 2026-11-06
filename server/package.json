@@ -7,13 +7,16 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "smoke:ollama": "tsx scripts/smoke-ollama.ts"
+    "smoke:ollama": "tsx scripts/smoke-ollama.ts",
+    "seed:demo": "tsx scripts/seed-demo.ts"
   },
   "dependencies": {
     "@bellhop/shared": "*",
+    "@better-auth/api-key": "^1.7.18",
     "@hono/node-server": "^2.0.0",
     "ai": "^7.0.0",
     "ai-sdk-ollama": "^4.0.0",
+    "better-auth": "^1.7.18",
     "better-sqlite3": "^13.0.0",
     "hono": "^4.0.0",
     "zod": "^4.0.0"
