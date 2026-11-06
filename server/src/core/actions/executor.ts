@@ -29,6 +29,7 @@ export interface ExecutorDeps {
   trace: TraceWriter;
   logger: Logger;
   limits: ExecutionLimits;
+  requestId?: string | undefined;
 }
 
 export interface Executor {
@@ -49,13 +50,14 @@ const RUNNERS: Record<Action, (deps: ActionDeps, run: ActionRun) => Promise<Exec
 type RejectReason = Extract<ExecutionOutcome, { kind: 'rejected' }>['reason'];
 
 export function createExecutor(deps: ExecutorDeps): Executor {
-  const { db, clock, providerClient, proposals, approvals, intents, stateMachine, trace, logger, limits } = deps;
+  const { db, clock, providerClient, proposals, approvals, intents, stateMachine, trace, logger, limits, requestId } =
+    deps;
   const log = childLogger(logger, 'executor');
   const approvalsRepo = createApprovalsRepo(db);
 
   const actionDeps: ActionDeps = {
     clock,
-    call: createTracedCall({ providerClient, clock, trace }),
+    call: createTracedCall({ providerClient, clock, trace, requestId }),
     proposals,
     approvals,
     intents,
@@ -100,8 +102,29 @@ export function createExecutor(deps: ExecutorDeps): Executor {
     } catch (recoveryErr) {
       log.error({ err: recoveryErr, userId, approvalId, idempotency_key: key }, 'recovery after failure failed');
     }
+    markFailedIfSpent(userId, approvalId, key);
     return { kind: 'failed', code: 'internal', message: 'unexpected error' };
   }
+
+  /**
+   * A spent approval can't be retried, so leaving the task in APPROVED/EXECUTING
+   * would strand the user. A still-valid approval (the consume was rolled back)
+   * stays retryable, so its state is left alone.
+   */
+  function markFailedIfSpent(userId: string, approvalId: string, key: string): void {
+    try {
+      if (approvalsRepo.get(userId, approvalId)?.status === 'valid') return;
+      moveTo(actionDeps, userId, 'FAILED', 'unexpected execution failure');
+    } catch (err) {
+      log.error({ err, userId, approvalId, idempotency_key: key }, 'could not move task to FAILED');
+    }
+  }
+
+  /** Plan §7/§8: the consume and the `pending` intent commit together, so a crash between them can't strand an approval. */
+  const claim = db.transaction((userId: string, approvalId: string, action: Action) => {
+    if (!approvals.consume(userId, approvalId)) return undefined;
+    return intents.begin(userId, approvalId, action);
+  });
 
   async function execute(userId: string, approvalId: string): Promise<ExecutionOutcome> {
     const approval = approvalsRepo.get(userId, approvalId);
@@ -125,10 +148,11 @@ export function createExecutor(deps: ExecutorDeps): Executor {
         ready = prepared.proposal;
       }
 
-      if (!approvals.consume(userId, approval.id)) {
+      const claimed = claim(userId, approval.id, proposal.action);
+      if (claimed === undefined) {
         return replayStored(intents.get(key)) ?? reject(userId, approvalId, 'approval_already_consumed');
       }
-      const { intent, created } = intents.begin(userId, approval.id, proposal.action);
+      const { intent, created } = claimed;
       if (!created) {
         const replay = replayStored(intent);
         if (replay !== undefined) return replay;

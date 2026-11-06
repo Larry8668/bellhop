@@ -103,11 +103,16 @@ export function createApprovalService(deps: ApprovalServiceDeps): ApprovalServic
         consumed_at: null,
         void_reason: null,
       };
-      db.transaction(() => {
-        proposalsRepo.setStatus(userId, proposal.id, 'approved', now);
+      const won = db.transaction(() => {
+        if (!proposalsRepo.setStatusIf(userId, proposal.id, 'pending', 'approved', now)) return false;
         approvalsRepo.insert(approval);
         if (state !== 'APPROVED') stateMachine.transition(userId, 'APPROVED', `approved via ${input.source}`);
+        return true;
       })();
+      if (!won) {
+        log.warn({ userId, proposalId: proposal.id }, 'approve lost the compare-and-set: proposal no longer pending');
+        return { ok: false, reason: 'proposal_not_pending' };
+      }
       emit(approval, 'created');
       log.info({ userId, proposalId: proposal.id, approvalId: approval.id, source: input.source }, 'approval created');
       return { ok: true, approval };

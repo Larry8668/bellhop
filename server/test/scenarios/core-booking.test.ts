@@ -136,25 +136,13 @@ describe('core scenarios — booking', () => {
     task,
   }) => {
     task.meta.expected =
-      'a book() that timed out but actually succeeded resolves to a succeeded intent on the next startup recovery pass, with the booking synced into the core db';
+      'the process dies after a book() that timed out without booking; on restart get_booking_status says not_booked, so recovery retries book ONCE with the SAME idempotency key and the approved hold (never a fresh approval) — exactly one booking, intent succeeded, state DONE, and a later Confirm replays the stored result';
 
     const proposal = await proposeBooking(h, provider);
     const approval = h.approve(proposal);
     const key = idempotencyKey('book', approval.id);
-    // Mirrors the executor's own order (plan §7): consume before the provider call,
-    // so a crash right after this leaves exactly one `consumed` approval behind.
+    // The executor's claim: consume + `pending` intent in one transaction (plan §7/§8).
     h.engine.approvals.consume(h.userId, approval.id);
-
-    // Drive the timeout directly through the client, bypassing the executor,
-    // so the intent row is left exactly as a real crash mid-booking would:
-    // `pending`, written before the call, never updated after the timeout.
-    h.scenario('TIMEOUT_BOOKED');
-    try {
-      await h.client.book(h.userId, { hold_id: proposal.hold_id!, idempotency_key: key });
-      expect.fail('expected a client-side timeout');
-    } catch (err) {
-      expect(ProviderError.isProviderError(err, 'timeout')).toBe(true);
-    }
     createIntentsRepo(h.db).insertPending({
       idempotency_key: key,
       approval_id: approval.id,
@@ -163,7 +151,16 @@ describe('core scenarios — booking', () => {
       created_at: h.clock.now().toISOString(),
       updated_at: h.clock.now().toISOString(),
     });
-    h.providerCalls().length = 0;
+    h.engine.stateMachine.transition(h.userId, 'EXECUTING', 'executing book');
+
+    // First attempt times out without booking; the process "crashes" before handling it.
+    h.scenario('TIMEOUT_NOT_BOOKED');
+    try {
+      await h.client.book(h.userId, { hold_id: proposal.hold_id!, idempotency_key: key });
+      expect.fail('expected a client-side timeout');
+    } catch (err) {
+      expect(ProviderError.isProviderError(err, 'timeout')).toBe(true);
+    }
 
     const result = await resolvePendingIntents({
       db: h.db,
@@ -174,12 +171,23 @@ describe('core scenarios — booking', () => {
     });
 
     const intent = createIntentsRepo(h.db).get(key);
+    const bookKeys = h
+      .providerCalls()
+      .filter((c) => c.tool === 'book')
+      .map((c) => (c.body as { idempotency_key: string }).idempotency_key);
     expect(result).toEqual({ resolved: 1, succeeded: 1, failed: 0, stillUnknown: 0 });
+    expect(bookKeys).toEqual([key, key]);
     expect(intent?.status).toBe('succeeded');
     expect(h.engine.bookings.list(h.userId)).toHaveLength(1);
     expect(h.providerBookings()).toHaveLength(1);
+    expect(stateOf(h)).toBe('DONE');
+
+    h.providerCalls().length = 0;
+    const again = await h.engine.executor.execute(h.userId, approval.id);
+    expect(again).toMatchObject({ kind: 'booked', replayed: true });
+    expect(h.providerCalls()).toHaveLength(0);
     h.assertInvariants();
 
-    task.meta.actual = `resolved=${result.resolved} succeeded=${result.succeeded} intent=${intent?.status} bookings=${h.engine.bookings.list(h.userId).length}`;
+    task.meta.actual = `resolved=${result.resolved} succeeded=${result.succeeded} book_keys=${JSON.stringify(bookKeys)} intent=${intent?.status} bookings=${h.providerBookings().length} state=${stateOf(h)} reconfirm=${again.kind}`;
   });
 });

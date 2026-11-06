@@ -26,12 +26,7 @@ export async function proposeBooking(
   provider: ProviderSummary,
   slot: Slot = provider.slots[0]!,
 ): Promise<Proposal> {
-  const result = await h.engine.proposals.proposeBooking(h.userId, {
-    provider_id: provider.id,
-    provider_name: provider.name,
-    service: provider.service,
-    slot,
-  });
+  const result = await h.engine.proposals.proposeBooking(h.userId, { provider_id: provider.id, slot });
   if (!result.ok) throw new Error(`proposeBooking failed: ${result.code}`);
   h.providerCalls().length = 0;
   return result.proposal;

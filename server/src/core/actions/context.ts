@@ -115,7 +115,10 @@ export function finishFailed(deps: ActionDeps, run: ActionRun, err: unknown): Ex
   return outcome;
 }
 
-/** Plan §8: the provider never answered conclusively — never claim success; startup recovery resolves `unknown`. */
+/**
+ * Plan §8: the provider never answered conclusively — never claim success; startup recovery resolves `unknown`.
+ * `checks` is how many times we asked: status checks for `book`, same-key attempts for cancel/reschedule.
+ */
 export function finishUnconfirmed(deps: ActionDeps, run: ActionRun, checks: number): ExecutionOutcome {
   deps.intents.unknown(run.key);
   moveTo(deps, run.userId, 'VERIFYING', `${run.proposal.action} unconfirmed`);
@@ -143,7 +146,11 @@ export async function withSameKeyRetries<T>(
     } catch (err) {
       if (!(err instanceof ProviderError) || !(isTransient(err) || isTimeout(err))) return { ok: false, err };
       if (retries >= deps.limits.retriesPerTool) {
-        return { ok: false, outcome: isTimeout(err) ? finishUnconfirmed(deps, run, 0) : finishFailed(deps, run, err) };
+        const attempts = retries + 1;
+        return {
+          ok: false,
+          outcome: isTimeout(err) ? finishUnconfirmed(deps, run, attempts) : finishFailed(deps, run, err),
+        };
       }
       retries += 1;
       deps.log.warn(
