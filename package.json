@@ -10,7 +10,7 @@
     "server"
   ],
   "scripts": {
-    "prepare": "husky && npm run build -w shared",
+    "prepare": "husky && npm run build",
     "build": "node scripts/run-ws.mjs build",
     "lint": "node scripts/run-ws.mjs lint",
     "test": "node scripts/run-ws.mjs test",
