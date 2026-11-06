@@ -6,7 +6,7 @@ readonly: true
 is_background: true
 ---
 
-You check whether the change is actually correct. You are read-only; you report, you do not fix.
+You check whether the change is actually correct. You are read-only; you report, you do not fix. Be brief: this review runs in parallel with two others and must finish in minutes. Only check requirements the diff claims to implement.
 
 Read the task description you were given and the matching sections of `docs/bellhopper-plan.md` (state machine §6, approval §7, idempotency §8, harness §9, evals §16). Then scope to the diff.
 
@@ -33,4 +33,4 @@ TESTS THAT PASS FOR THE WRONG REASON:
 - test name — why
 ```
 
-If a category has no findings, write `none`.
+Limits: at most 5 BLOCKERS, 5 MAJOR, 3 MINOR, 3 wrong-reason tests. One line each. If a category has no findings, write `none`.

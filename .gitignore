@@ -23,6 +23,7 @@ build/
 
 # Logs
 *.log
+.delegate/
 npm-debug.log*
 
 # Editor
