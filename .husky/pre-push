@@ -1,0 +1,9 @@
+# Refuse direct pushes to main. Changes reach main through PRs only.
+# GitHub branch protection needs a paid plan for private repos, so this is the local guard.
+# Escape hatch for emergencies: ALLOW_MAIN_PUSH=1 git push
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ] && [ "${ALLOW_MAIN_PUSH:-0}" != "1" ]; then
+    echo "pre-push: direct push to main is blocked. Open a PR instead." >&2
+    exit 1
+  fi
+done

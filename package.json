@@ -1,0 +1,26 @@
+{
+  "name": "bellhop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "An errand agent that never books without your say-so.",
+  "workspaces": [
+    "provider",
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "prepare": "husky",
+    "lint": "node scripts/run-ws.mjs lint",
+    "test": "node scripts/run-ws.mjs test",
+    "typecheck": "node scripts/run-ws.mjs typecheck"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.0.0",
+    "@commitlint/config-conventional": "^20.0.0",
+    "husky": "^9.1.7"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
