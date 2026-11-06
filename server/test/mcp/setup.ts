@@ -12,7 +12,6 @@ import { migrateDb } from '../../src/db/migrate.js';
 import { createApiApp } from '../../src/api/app.js';
 import { createProviderClient } from '../../src/provider-client/index.js';
 import { createMcpApp } from '../../src/mcp/index.js';
-import { createUserQueue } from '../../src/core/queue/user-queue.js';
 import { DEFAULT_MCP_TEST_LIMITS } from './limits.js';
 import { signUpAndSignIn, WEB_ORIGIN, type SignedUpUser } from '../api/test-helpers.js';
 import { startStubProvider, type StubProvider, type StubProviderRoute } from '../helpers/stub-provider.js';

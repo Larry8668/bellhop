@@ -50,7 +50,17 @@ export async function setupMcpProposeTest(): Promise<McpProposeTestContext> {
   const queue = createUserQueue({ logger });
   const tracesDir = mkdtempSync(path.join(os.tmpdir(), 'bellhop-mcp-propose-trace-'));
 
-  const apiApp = createApiApp({ auth, logger, providerClient, webOrigin: WEB_ORIGIN });
+  const apiApp = createApiApp({
+    auth,
+    logger,
+    providerClient,
+    webOrigin: WEB_ORIGIN,
+    db,
+    clock: tp.clock,
+    limits: DEFAULT_MCP_TEST_LIMITS,
+    tracesDir,
+    queue,
+  });
   const mcpApp = createMcpApp({
     auth,
     providerClient,
