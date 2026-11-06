@@ -42,7 +42,12 @@ interface AuthOptions {
   };
 }
 
-function buildOptions({ db, secret, baseUrl, logger, trustedOrigins }: CreateAuthDeps): AuthOptions {
+/**
+ * Factored out so `scripts/gen-auth-migration.ts` can build the exact same
+ * options against a throwaway db to regenerate `db/migrations/0001_auth.sql`,
+ * and so the schema-drift guard test can rebuild them for `getMigrations`.
+ */
+export function buildOptions({ db, secret, baseUrl, logger, trustedOrigins }: CreateAuthDeps): AuthOptions {
   const authLog = childLogger(logger, 'better-auth');
 
   return {

@@ -2,7 +2,7 @@ import { createLogger } from '@bellhop/shared/logger';
 import { loadConfig } from './config.js';
 import { openDatabase } from './db/open.js';
 import { createAuth } from './auth/auth.js';
-import { migrateAuth } from './auth/migrate.js';
+import { migrateDb } from './db/migrate.js';
 import { createProviderClient } from './provider-client/index.js';
 import { createApiApp } from './api/app.js';
 import { createMcpApp } from './mcp/index.js';
@@ -28,7 +28,8 @@ const auth = createAuth({
   trustedOrigins: [config.WEB_ORIGIN],
   logger,
 });
-await migrateAuth(auth);
+const applied = migrateDb(db, logger);
+logger.info({ count: applied.length }, `migrations: ${applied.length} applied`);
 
 const providerClient = createProviderClient({
   baseUrl: config.PROVIDER_URL,

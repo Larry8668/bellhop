@@ -29,7 +29,7 @@ export function createTestEngine(opts?: {
   const seed = opts?.seed ?? 42;
   const logger = createLogger({ name: 'test', level: 'silent' });
   const db = openProviderDb(':memory:', { logger });
-  applySchema(db);
+  applySchema(db, logger);
 
   const base = createFakeClock(opts?.startMs ?? TEST_START_MS);
   const clock = createAdjustableClock(base);

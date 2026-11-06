@@ -15,7 +15,12 @@
     "start": "tsx src/index.ts",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:migrate": "tsx scripts/db.ts up",
+    "db:rollback": "tsx scripts/db.ts down",
+    "db:status": "tsx scripts/db.ts status",
+    "db:seed": "tsx scripts/db.ts seed",
+    "db:reset": "tsx scripts/db.ts reset"
   },
   "dependencies": {
     "@bellhop/shared": "*",
