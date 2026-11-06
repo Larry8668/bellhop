@@ -45,6 +45,20 @@ describe('messagesRepo', () => {
     expect(recent.map((m) => m.text)).toEqual(['msg-3', 'msg-4']);
   });
 
+  it('listAll returns every message for the user, oldest first', () => {
+    const db = createTestDb();
+    const conv = createConversationsRepo(db).ensureConversation(TEST_USER, '2026-01-01T00:00:00Z');
+    const repo = createMessagesRepo(db);
+
+    const later = makeMessage(conv.id, { text: 'later', created_at: '2026-01-01T00:00:02Z' });
+    const earlier = makeMessage(conv.id, { text: 'earlier', created_at: '2026-01-01T00:00:01Z' });
+    repo.append(later);
+    repo.append(earlier);
+    repo.append(makeMessage(conv.id, { user_id: OTHER_USER, text: 'other', created_at: '2026-01-01T00:00:00Z' }));
+
+    expect(repo.listAll(TEST_USER).map((m) => m.text)).toEqual(['earlier', 'later']);
+  });
+
   it('cross-user listRecent returns empty', () => {
     const db = createTestDb();
     const conv = createConversationsRepo(db).ensureConversation(TEST_USER, '2026-01-01T00:00:00Z');

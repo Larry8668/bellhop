@@ -8,7 +8,7 @@ import { startTestProvider, type TestProvider } from '@bellhop/provider/testing'
 import { createApiApp } from '../../src/api/app.js';
 import { createUserQueue } from '../../src/core/queue/user-queue.js';
 import { createProviderAdminClient, createProviderClient } from '../../src/provider-client/index.js';
-import { createApiKeyUser, setupTestAuth, signUpAndSignIn, WEB_ORIGIN } from './test-helpers.js';
+import { apiWiring, createApiKeyUser, setupTestAuth, signUpAndSignIn, WEB_ORIGIN } from './test-helpers.js';
 
 const LIMITS = { statusChecks: 3, retriesPerTool: 2 } as const;
 
@@ -44,6 +44,7 @@ describe('proposals API (Phase 2 wave 3c)', () => {
       limits: LIMITS,
       tracesDir,
       queue,
+      ...apiWiring(),
     });
     return { app, ...authSetup };
   }

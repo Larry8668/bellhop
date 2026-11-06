@@ -11,6 +11,19 @@ function numberEnv(key: string) {
   });
 }
 
+/** Absent means "use the NODE_ENV default" (`true` outside production). */
+function boolEnv(key: string) {
+  return z
+    .enum(['true', 'false', '1', '0'], {
+      error: () => `Invalid config value for ${key}: expected true or false`,
+    })
+    .optional()
+    .transform((value): boolean | undefined => {
+      if (value === undefined) return undefined;
+      return value === 'true' || value === '1';
+    });
+}
+
 const configSchema = z.object({
   MODEL: z.string().default('qwen3.5:9b'),
   MODEL_FALLBACK: z.string().default('qwen3:8b'),
@@ -31,9 +44,14 @@ const configSchema = z.object({
   BETTER_AUTH_SECRET: z.string().default('dev-secret-change-me'),
   BETTER_AUTH_URL: z.string().default('http://localhost:4000'),
   WEB_ORIGIN: z.string().default('http://localhost:5173'),
+  /** Off in production unless set. Gates `POST /api/dev/provider-cancel/:bookingId` (plan §12). */
+  DEV_ROUTES: boolEnv('DEV_ROUTES'),
+  PROACTIVE_POLL_MS: numberEnv('PROACTIVE_POLL_MS').int().positive().default(15000),
 });
 
-export type Config = z.infer<typeof configSchema>;
+export type Config = Omit<z.infer<typeof configSchema>, 'DEV_ROUTES'> & {
+  DEV_ROUTES: boolean;
+};
 
 /**
  * Loads and validates process env into a typed Config. Throws an Error whose
@@ -55,5 +73,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error(`Invalid configuration: ${messages.join('; ')}`);
   }
 
-  return result.data;
+  return {
+    ...result.data,
+    DEV_ROUTES: result.data.DEV_ROUTES ?? env.NODE_ENV !== 'production',
+  };
 }

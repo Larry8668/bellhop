@@ -19,6 +19,20 @@ describe('loadConfig', () => {
     expect(config.DB_PATH).toBe('./data/bellhop.db');
     expect(config.TRACES_DIR).toBe('../traces');
     expect(config.LOG_LEVEL).toBe('info');
+    expect(config.DEV_ROUTES).toBe(true);
+    expect(config.PROACTIVE_POLL_MS).toBe(15000);
+  });
+
+  it('defaults DEV_ROUTES off in production and on when explicitly set', () => {
+    expect(loadConfig({ NODE_ENV: 'production' }).DEV_ROUTES).toBe(false);
+    expect(loadConfig({ NODE_ENV: 'production', DEV_ROUTES: 'true' }).DEV_ROUTES).toBe(true);
+    expect(loadConfig({ DEV_ROUTES: '0' }).DEV_ROUTES).toBe(false);
+  });
+
+  it('throws an error naming DEV_ROUTES or PROACTIVE_POLL_MS when the value is invalid', () => {
+    expect(() => loadConfig({ DEV_ROUTES: 'yes' })).toThrowError(/DEV_ROUTES/);
+    expect(() => loadConfig({ PROACTIVE_POLL_MS: '0' })).toThrowError(/PROACTIVE_POLL_MS/);
+    expect(() => loadConfig({ PROACTIVE_POLL_MS: 'soon' })).toThrowError(/PROACTIVE_POLL_MS/);
   });
 
   it('coerces numeric env strings', () => {

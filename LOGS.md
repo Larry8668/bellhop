@@ -157,3 +157,18 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 **Decided**
 - Mock mode stays `VITE_USE_MOCK=true` (Vitest and `.env.example`) and also turns on when `VITE_API_MODE=mock`.
 - The approval-card hold countdown ticks on a clock in the component; tests pass a frozen `nowMs`. The dev provider-cancel control is an inline two-step button, not `confirm()`.
+## 2026-11-07 — Phase 6/7 wiring (chat, SSE, composition root, get_profile)
+
+**Done**
+- `GET /api/messages`, `POST /api/chat/send` (per-user queue, session-only), `GET /api/events` (SSE + 15s heartbeat), and `POST /api/dev/provider-cancel/:bookingId` (own booking only, then `proactive.tick()`). Chat messages include `proposalId` from `messages.proposal_id`. A failed turn returns 503 with the standard error envelope.
+- Composition root builds the model, memory, bus, and proactive poller (`PROACTIVE_POLL_MS`, default 15000) and passes them into the API and MCP apps. `DEV_ROUTES` defaults on outside production.
+- MCP `get_profile` returns the API-key user's facts and takes no user id from the model.
+
+**Decided**
+- Harness, memory, and proactive are still on other branches. `server/src/wiring/deps.ts` re-exports placeholders (`// swap to real modules on merge`) with the pinned signatures. Routes and tests import that module only; tests inject a fake `runTurn`, memory, and proactive through `createApiApp`. `runTurn` is what persists the user and assistant rows — the route reads the latest assistant message back.
+- The in-process event bus is a live fan-out for the trace panel, not a second source of truth. A restart drops subscribers; history stays in `messages` and the trace files.
+- `/api/facts` is not implemented here. It lands with the memory branch's `registerFactRoutes`.
+
+**Next**
+- Point `deps.ts` at the real harness, memory, and proactive modules when those branches merge.
+- UI delegate: extend `chatMessageSchema` with `proposalId` so the client keeps the field the server now sends.

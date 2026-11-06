@@ -52,7 +52,8 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 - [x] `/mcp` stateless Streamable HTTP via `@hono/mcp`; tools `search_providers`, `get_provider` (fenced reviews), `list_bookings`, `whoami`
 - [x] MCP `propose_*` + elicitation approval + UI-link fallback (Phase 2 wave 3B)
 - [x] `/api/proposals` (+ approve/decline), `/api/task`, web Proposals page with hash-carrying Confirm (Phase 2 wave 3C/3D)
-- [x] Web chat UI calls `/api/messages`, `/api/chat/send`, `/api/events`, `/api/facts`, and `/api/dev/provider-cancel` (404 "not available yet" fallback removed). Server handlers are a separate task.
+- [x] Web chat/events/facts endpoints served (`/api/messages`, `/api/chat/send`, `/api/events`, `/api/facts`, dev provider-cancel)
+- [x] MCP `get_profile` for the API-key user
 - [ ] Verify elicitation end-to-end from Cursor's MCP client (does it surface the confirm form? else the UI-link fallback is what users see)
 
 ## Phase 2 — Core engine (PRs #22–#30 into `feat/phase-2-core`)
@@ -99,14 +100,14 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 
 ## Phase 6 — API + Auth + UI
 
-- [ ] HTTP + SSE routes; Better Auth email/password; seeded demo account
+- [x] HTTP + SSE routes (`/api/messages`, `/api/chat/send`, `/api/events`, dev provider-cancel); Better Auth email/password; seeded demo account
 - [x] Web: Login (demo hint), Chat (approval card + countdown, trace panel), Profile (grouped facts, API key + MCP snippet), Bookings (dev provider-cancel), mock API (2026-11-07)
 
 ## Phase 7 — MCP
 
-- [ ] `/mcp` route (MCP SDK v2, stateless HTTP)
-- [ ] API Key plugin auth → user_id
-- [ ] Elicitation approval + `CapabilityNotSupported` fallback to UI link
+- [x] `/mcp` route plus `get_profile` (SDK is 1.x, not v2 — see LOGS 2026-11-06)
+- [x] API Key plugin auth → user_id
+- [x] Elicitation approval + `CapabilityNotSupported` fallback to UI link
 - [ ] Verify with Claude Code and Cursor
 
 ## Phase 8 — Ship

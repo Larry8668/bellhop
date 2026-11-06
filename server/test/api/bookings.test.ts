@@ -8,7 +8,7 @@ import { createApiApp } from '../../src/api/app.js';
 import { createUserQueue } from '../../src/core/queue/user-queue.js';
 import { ProviderError } from '../../src/provider-client/errors.js';
 import type { ProviderClient } from '../../src/provider-client/client.js';
-import { setupTestAuth, signUpAndSignIn, WEB_ORIGIN } from './test-helpers.js';
+import { apiWiring, setupTestAuth, signUpAndSignIn, WEB_ORIGIN } from './test-helpers.js';
 
 const TEST_LIMITS = { statusChecks: 3, retriesPerTool: 2 } as const;
 
@@ -45,6 +45,7 @@ async function buildApp(providerClient: Partial<ProviderClient>) {
     limits: TEST_LIMITS,
     tracesDir,
     queue,
+    ...apiWiring(),
   });
   return app;
 }

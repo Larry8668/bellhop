@@ -1,6 +1,7 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import type { LanguageModel } from 'ai';
 import { systemClock } from '@bellhop/shared/clock';
 import { createLogger } from '@bellhop/shared/logger';
 import type { Logger } from '@bellhop/shared/logger';
@@ -10,7 +11,11 @@ import { openDatabase } from '../../src/db/open.js';
 import { createAuth, type Auth } from '../../src/auth/auth.js';
 import { migrateDb } from '../../src/db/migrate.js';
 import { createApiApp } from '../../src/api/app.js';
+import type { ProviderAdmin } from '../../src/api/chat.js';
+import { createEventBus, type EventBus } from '../../src/events/bus.js';
+import { scriptedModel, textStep } from '../../src/harness/scripted-model.js';
 import type { ProviderClient } from '../../src/provider-client/client.js';
+import type { HarnessMemory, Proactive, RunTurn, TurnLimits } from '../../src/wiring/deps.js';
 
 export const WEB_ORIGIN = 'http://localhost:5173';
 
@@ -41,6 +46,56 @@ export interface TestAppSetup extends TestAuthSetup {
 /** In-memory app + auth pair, ready to receive `app.request(...)` calls. */
 const TEST_LIMITS = { statusChecks: 3, retriesPerTool: 2 } as const;
 
+const DEFAULT_TURN_LIMITS: TurnLimits = {
+  modelCalls: 8,
+  toolCalls: 15,
+  wallClockMs: 60_000,
+  statusChecks: 3,
+  retriesPerTool: 2,
+};
+
+/** Memory that stores nothing. Chat and MCP tests replace methods when they need facts. */
+export function emptyMemory(): HarnessMemory {
+  return {
+    selectForContext: () => [],
+    remember: () => {},
+    forget: () => {},
+    getProfile: () => [],
+    logContext: () => {},
+  };
+}
+
+export interface ApiWiring {
+  model: LanguageModel;
+  memory: HarnessMemory;
+  bus: EventBus;
+  turnLimits: TurnLimits;
+  runTurn: RunTurn;
+  proactive: Proactive;
+  devRoutes: boolean;
+  providerAdmin: ProviderAdmin;
+}
+
+/** Defaults so existing API/MCP suites can construct `createApiApp` without a live harness. */
+export function apiWiring(overrides: Partial<ApiWiring> = {}): ApiWiring {
+  return {
+    model: scriptedModel([textStep('ok')]),
+    memory: emptyMemory(),
+    bus: createEventBus(),
+    turnLimits: DEFAULT_TURN_LIMITS,
+    runTurn: () => Promise.reject(new Error('not wired')),
+    proactive: {
+      tick: () => Promise.resolve(),
+      start: () => () => {},
+    },
+    devRoutes: true,
+    providerAdmin: {
+      cancelBooking: () => Promise.resolve(),
+    },
+    ...overrides,
+  };
+}
+
 export async function setupTestApp(deps: { providerClient?: Partial<ProviderClient> } = {}): Promise<TestAppSetup> {
   const setup = await setupTestAuth();
   const tracesDir = mkdtempSync(path.join(tmpdir(), 'bellhop-api-test-'));
@@ -55,6 +110,7 @@ export async function setupTestApp(deps: { providerClient?: Partial<ProviderClie
     limits: TEST_LIMITS,
     tracesDir,
     queue,
+    ...apiWiring(),
   });
   return { ...setup, app };
 }

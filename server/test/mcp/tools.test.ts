@@ -6,6 +6,7 @@ import type {
   ListBookingsOutput,
   SearchProvidersOutput,
 } from '@bellhop/shared/contracts';
+import type { HarnessMemory, MemoryFact } from '../../src/wiring/deps.js';
 import { connectMcpClient } from './helpers.js';
 import { createApiKeyUser, setupMcpTest, type McpTestContext } from './setup.js';
 
@@ -27,6 +28,7 @@ describe('MCP server: tool listing', () => {
 
     expect(names).toEqual([
       'decline_proposal',
+      'get_profile',
       'get_provider',
       'list_bookings',
       'list_proposals',
@@ -218,5 +220,59 @@ describe('MCP server: provider errors surface as tool results, not thrown errors
     expect(result.isError).toBe(true);
     const text = (result.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
     expect(text).toContain('search_error');
+  });
+});
+
+describe('MCP server: get_profile (API-key user only)', () => {
+  it("returns that key owner's facts and ignores a user_id the model supplies", async () => {
+    const facts = new Map<string, MemoryFact[]>();
+    const memory: HarnessMemory = {
+      selectForContext: () => [],
+      remember: () => {},
+      forget: () => {},
+      getProfile: (userId) => facts.get(userId) ?? [],
+      logContext: () => {},
+    };
+    ctx = await setupMcpTest({}, { memory });
+    const { apiKey: keyA } = await createApiKeyUser(ctx.apiApp);
+    const { apiKey: keyB } = await createApiKeyUser(ctx.apiApp);
+    const clientA = await connectMcpClient(ctx.server.baseUrl, { authorization: `Bearer ${keyA}` });
+    const clientB = await connectMcpClient(ctx.server.baseUrl, { authorization: `Bearer ${keyB}` });
+
+    const whoA = await clientA.client.callTool({ name: 'whoami', arguments: {} });
+    const whoB = await clientB.client.callTool({ name: 'whoami', arguments: {} });
+    const userA = (whoA.structuredContent as { userId: string }).userId;
+    const userB = (whoB.structuredContent as { userId: string }).userId;
+
+    const factA: MemoryFact = {
+      id: 'fact_a',
+      key: 'area',
+      value: 'Indiranagar',
+      kind: 'explicit',
+      status: 'active',
+    };
+    const factB: MemoryFact = {
+      id: 'fact_b',
+      key: 'note',
+      value: 'victim-secret',
+      kind: 'explicit',
+      status: 'active',
+    };
+    facts.set(userA, [factA]);
+    facts.set(userB, [factB]);
+
+    const result = await clientA.client.callTool({
+      name: 'get_profile',
+      arguments: { user_id: userB },
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(result.structuredContent).toEqual({ facts: [factA] });
+    const text = (result.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
+    expect(text).toContain('Indiranagar');
+    expect(text).not.toContain('victim-secret');
+
+    const other = await clientB.client.callTool({ name: 'get_profile', arguments: {} });
+    expect(other.structuredContent).toEqual({ facts: [factB] });
   });
 });
