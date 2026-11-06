@@ -1,15 +1,22 @@
+import { useEffect, useState } from 'react';
 import type { ProposalDetail } from '../api/types.js';
+import { formatHoldCountdown, formatLocalRange } from '../format.js';
 import { Button } from './Button.js';
 import { Badge } from './Badge.js';
 
-function formatSlot(start: string, end: string): string {
-  try {
-    const s = new Date(start);
-    const e = new Date(end);
-    return `${s.toLocaleString()} → ${e.toLocaleString()}`;
-  } catch {
-    return `${start} → ${end}`;
-  }
+function useNowMs(frozen: number | undefined): number {
+  const [now, setNow] = useState(() => frozen ?? new Date().getTime());
+  useEffect(() => {
+    if (frozen !== undefined) {
+      setNow(frozen);
+      return;
+    }
+    const id = setInterval(() => {
+      setNow(new Date().getTime());
+    }, 1000);
+    return () => clearInterval(id);
+  }, [frozen]);
+  return frozen ?? now;
 }
 
 function actionLabel(a: ProposalDetail['action']): string {
@@ -23,14 +30,26 @@ export function ApprovalCard({
   busy,
   onConfirm,
   onDecline,
+  nowMs,
 }: {
   proposal: ProposalDetail;
   busy?: boolean;
   onConfirm: () => void;
   onDecline: () => void;
+  /** Freeze the countdown (tests). Omit to tick once a second. */
+  nowMs?: number;
 }): React.ReactElement {
+  const now = useNowMs(nowMs);
+  const countdown = formatHoldCountdown(proposal.hold_expires_at, now);
+  let holdLocal = proposal.hold_expires_at;
+  const holdDate = new Date(proposal.hold_expires_at);
+  if (!Number.isNaN(holdDate.getTime())) holdLocal = holdDate.toLocaleString();
+
   return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+    <div
+      className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm"
+      data-testid="approval-card"
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-amber-950">Approval needed</h3>
         {proposal.expired ? (
@@ -49,16 +68,16 @@ export function ApprovalCard({
         </div>
         <div className="flex justify-between gap-2">
           <dt className="text-zinc-500">Provider</dt>
-          <dd className="font-medium">{proposal.provider_name}</dd>
+          <dd className="min-w-0 text-right font-medium">{proposal.provider_name}</dd>
         </div>
         <div className="flex justify-between gap-2">
           <dt className="text-zinc-500">Service</dt>
-          <dd className="font-medium">{proposal.service}</dd>
+          <dd className="min-w-0 text-right font-medium">{proposal.service}</dd>
         </div>
         <div className="flex justify-between gap-2">
-          <dt className="text-zinc-500">Slot</dt>
-          <dd className="text-right font-medium">
-            {formatSlot(proposal.slot.start, proposal.slot.end)}
+          <dt className="shrink-0 text-zinc-500">Slot (local time)</dt>
+          <dd className="min-w-0 text-right font-medium break-words">
+            {formatLocalRange(proposal.slot.start, proposal.slot.end)}
           </dd>
         </div>
         <div className="flex justify-between gap-2">
@@ -69,8 +88,9 @@ export function ApprovalCard({
         </div>
         <div className="flex justify-between gap-2">
           <dt className="text-zinc-500">Hold expires</dt>
-          <dd className="font-medium">
-            {new Date(proposal.hold_expires_at).toLocaleString()}
+          <dd className="text-right font-medium">
+            <span data-testid="hold-countdown">{countdown}</span>
+            <span className="block text-xs font-normal text-zinc-600">{holdLocal}</span>
           </dd>
         </div>
       </dl>
@@ -82,11 +102,7 @@ export function ApprovalCard({
         >
           Confirm
         </Button>
-        <Button
-          variant="secondary"
-          disabled={busy}
-          onClick={onDecline}
-        >
+        <Button variant="secondary" disabled={busy} onClick={onDecline}>
           Decline
         </Button>
       </div>

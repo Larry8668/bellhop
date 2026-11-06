@@ -57,6 +57,12 @@ export function Login(): React.ReactElement {
         <p className="mt-1 text-sm text-zinc-600">
           Bellhop never books without your approval.
         </p>
+        <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          Demo account:{' '}
+          <span className="font-mono text-zinc-900">demo@bellhop.local</span>
+          {' / '}
+          <span className="font-mono text-zinc-900">demo-pass-123</span>
+        </p>
 
         {error ? (
           <div className="mt-4">
@@ -110,6 +116,20 @@ export function Login(): React.ReactElement {
             {submitting ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Sign up'}
           </Button>
         </form>
+
+        {mode === 'signin' ? (
+          <Button
+            variant="secondary"
+            className="mt-3 w-full"
+            onClick={() => {
+              setEmail('demo@bellhop.local');
+              setPassword('demo-pass-123');
+              setError(null);
+            }}
+          >
+            Use demo account
+          </Button>
+        ) : null}
 
         <p className="mt-4 text-center text-sm text-zinc-600">
           {mode === 'signin' ? (

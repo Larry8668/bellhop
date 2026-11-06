@@ -4,7 +4,7 @@ import { useSession } from '../auth/SessionProvider.js';
 import { Button } from './Button.js';
 
 const linkBase =
-  'rounded-md px-3 py-2 text-sm font-medium hover:bg-zinc-100';
+  'whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium hover:bg-zinc-100';
 
 function navClass(isActive: boolean): string {
   return `${linkBase} ${isActive ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-600'}`;
@@ -17,26 +17,26 @@ export function Layout({ children }: { children: ReactNode }): React.ReactElemen
   return (
     <div className="min-h-dvh bg-zinc-50">
       <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-2 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <Link to="/" className="text-lg font-semibold text-zinc-900">
             Bellhop
           </Link>
-          <nav className="flex flex-wrap items-center gap-1">
+          <nav className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
             <NavLink to="/" end className={({ isActive }) => navClass(isActive)}>
               Chat
-            </NavLink>
-            <NavLink to="/profile" className={({ isActive }) => navClass(isActive)}>
-              Profile
-            </NavLink>
-            <NavLink to="/bookings" className={({ isActive }) => navClass(isActive)}>
-              Bookings
             </NavLink>
             <NavLink to="/proposals" className={({ isActive }) => navClass(isActive)}>
               Proposals
             </NavLink>
+            <NavLink to="/bookings" className={({ isActive }) => navClass(isActive)}>
+              Bookings
+            </NavLink>
+            <NavLink to="/profile" className={({ isActive }) => navClass(isActive)}>
+              Profile
+            </NavLink>
             <Button
               variant="ghost"
-              className="ml-1"
+              className="ml-1 whitespace-nowrap"
               onClick={async () => {
                 await signOut();
                 navigate('/login', { replace: true });
@@ -47,7 +47,7 @@ export function Layout({ children }: { children: ReactNode }): React.ReactElemen
           </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-3xl px-4 py-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
     </div>
   );
 }

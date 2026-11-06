@@ -32,6 +32,8 @@ export interface Api {
   forgetFact(id: string): Promise<void>;
   confirmFact(id: string): Promise<void>;
   listBookings(): Promise<Booking[]>;
+  /** Dev only: provider cancels the booking; the server then proposes a replacement. */
+  simulateProviderCancel(bookingId: string): Promise<void>;
   listApiKeys(): Promise<ApiKey[]>;
   createApiKey(name: string): Promise<CreateApiKeyResult>;
 }

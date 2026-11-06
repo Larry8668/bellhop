@@ -11,6 +11,8 @@ export interface ChatMessage {
   role: Role;
   text: string;
   createdAt: string;
+  /** Set when this message points at a proposal card. */
+  proposalId?: string | null;
 }
 
 export type ProposalAction = 'book' | 'cancel' | 'reschedule';

@@ -6,6 +6,7 @@ const toneClass: Record<string, string> = {
   warning: 'bg-amber-100 text-amber-900',
   danger: 'bg-red-100 text-red-900',
   info: 'bg-sky-100 text-sky-900',
+  accent: 'bg-violet-100 text-violet-900',
 };
 
 export function Badge({

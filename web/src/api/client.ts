@@ -8,11 +8,11 @@ import {
   chatMessageSchema,
   createApiKeyResponseSchema,
   createProposalResponseSchema,
-  declineResponseSchema,
   factSchema,
   getTaskResponseSchema,
   listProposalsResponseSchema,
   meResponseSchema,
+  okResponseSchema,
   traceEventSchema,
 } from './schemas.js';
 import type { CreateProposalInput } from './types.js';
@@ -109,12 +109,7 @@ async function readError(response: Response): Promise<ApiError> {
       }
     }
   } catch {
-    // ignore
-  }
-  // Messages/events/facts routes don't exist on the server yet — surface a
-  // readable message instead of the generic "no such route" envelope.
-  if (response.status === 404) {
-    message = 'This feature is not available yet.';
+    // Body was not JSON; keep the HTTP status text.
   }
   return new ApiError(response.status, code, message);
 }
@@ -267,8 +262,17 @@ export const httpApi: Api = {
     await fetchJson(
       endpoints.decline(proposalId),
       { method: 'POST' },
-      declineResponseSchema,
+      okResponseSchema,
       'decline',
+    );
+  },
+
+  simulateProviderCancel: async (bookingId) => {
+    await fetchJson(
+      endpoints.devProviderCancel(bookingId),
+      { method: 'POST' },
+      okResponseSchema,
+      'devProviderCancel',
     );
   },
 
