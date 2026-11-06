@@ -15,6 +15,7 @@ export interface CreateMcpServerDeps {
   providerClient: ProviderClient;
   principal: Principal;
   logger: Logger;
+  requestId: string;
 }
 
 /**
@@ -51,7 +52,7 @@ function summarizeProviders(providers: ProviderSummary[]): string {
  * §15); the LLM must never be able to call `book`/`cancel`/`reschedule`
  * directly (coding-standards.mdc invariant 1).
  */
-export function createMcpServer({ providerClient, principal, logger }: CreateMcpServerDeps): McpServer {
+export function createMcpServer({ providerClient, principal, logger, requestId }: CreateMcpServerDeps): McpServer {
   const log = childLogger(logger, 'mcp-server', { userId: principal.userId });
   const server = new McpServer({ name: 'bellhop', version: '0.1.0' });
 
@@ -64,7 +65,7 @@ export function createMcpServer({ providerClient, principal, logger }: CreateMcp
     },
     async (input) => {
       try {
-        const output = await providerClient.search_providers(principal.userId, input);
+        const output = await providerClient.search_providers(principal.userId, input, { requestId });
         return {
           content: [{ type: 'text', text: summarizeProviders(output.providers) }],
           structuredContent: output,
@@ -85,7 +86,7 @@ export function createMcpServer({ providerClient, principal, logger }: CreateMcp
     },
     async (input) => {
       try {
-        const output = await providerClient.get_provider(principal.userId, input);
+        const output = await providerClient.get_provider(principal.userId, input, { requestId });
         const fenced = { provider: fenceReviews(output.provider) };
         return {
           content: [
@@ -111,7 +112,11 @@ export function createMcpServer({ providerClient, principal, logger }: CreateMcp
     },
     async () => {
       try {
-        const output = await providerClient.list_bookings(principal.userId, { user_id: principal.userId });
+        const output = await providerClient.list_bookings(
+          principal.userId,
+          { user_id: principal.userId },
+          { requestId },
+        );
         const summary =
           output.bookings.length === 0
             ? 'No bookings.'

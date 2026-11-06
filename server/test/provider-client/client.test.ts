@@ -1,6 +1,7 @@
 import type { AddressInfo } from 'node:net';
 import { serve } from '@hono/node-server';
 import {
+  REQUEST_ID_HEADER,
   USER_ID_HEADER,
   type SearchProvidersInput,
   type SearchProvidersOutput,
@@ -67,10 +68,12 @@ describe('provider-client', () => {
     it('search_providers 200: parses output and forwards header + JSON body', async () => {
       const app = new Hono();
       let seenHeader: string | undefined;
+      let seenRequestId: string | undefined;
       let seenBody: unknown;
 
       app.post('/tools/search_providers', async (c) => {
         seenHeader = c.req.header(USER_ID_HEADER);
+        seenRequestId = c.req.header(REQUEST_ID_HEADER);
         seenBody = await c.req.json();
         return c.json({
           providers: [
@@ -109,9 +112,12 @@ describe('provider-client', () => {
             to: '2026-11-11T00:00:00.000Z',
           },
         };
-        const out = await client.search_providers('user-1', input);
+        const out = await client.search_providers('user-1', input, {
+          requestId: 'corr-1',
+        });
 
         expect(seenHeader).toBe('user-1');
+        expect(seenRequestId).toBe('corr-1');
         expect(seenBody).toEqual(input);
         expect(out.providers).toHaveLength(1);
         expect(out.providers[0]?.id).toBe('p1');

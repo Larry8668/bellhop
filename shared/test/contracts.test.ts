@@ -13,6 +13,7 @@ import {
   TOOL_ERROR_HTTP_STATUS,
   ToolErrorCodeSchema,
   USER_ID_HEADER,
+  parseIncomingRequestId,
 } from '../src/contracts/common.js';
 import {
   BookInputSchema,
@@ -34,6 +35,21 @@ const datetimeNoOffset = '2025-11-06T10:00:00';
 function slot(): { start: string; end: string } {
   return { start: tWithOffset, end: tWithOffset2 };
 }
+
+describe('parseIncomingRequestId', () => {
+  it('accepts alnum, underscore, hyphen up to 64 chars', () => {
+    expect(parseIncomingRequestId('a_B-9')).toBe('a_B-9');
+    expect(parseIncomingRequestId('a'.repeat(64))).toBe('a'.repeat(64));
+  });
+
+  it('rejects empty, too long, or bad charset', () => {
+    expect(parseIncomingRequestId(undefined)).toBeNull();
+    expect(parseIncomingRequestId('')).toBeNull();
+    expect(parseIncomingRequestId('a'.repeat(65))).toBeNull();
+    expect(parseIncomingRequestId('bad!')).toBeNull();
+    expect(parseIncomingRequestId(' space')).toBeNull();
+  });
+});
 
 describe('provider tool input schemas', () => {
   it('SearchProvidersInputSchema accepts valid and rejects bad datetime', () => {

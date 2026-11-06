@@ -15,7 +15,7 @@ function isTcpAddress(
 }
 
 export async function startServer(opts: {
-  app: Hono;
+  app: Pick<Hono, 'fetch'>;
   port: number;
   logger: Logger;
 }): Promise<{ port: number; url: string; close(): Promise<void> }> {
