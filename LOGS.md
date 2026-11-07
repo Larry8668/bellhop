@@ -224,3 +224,7 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 
 - MCP `search_providers`, `get_provider` and `list_bookings` text now carries provider ids, exact slot start/end and booking ids (`server/src/mcp/format.ts`). Cursor only showed its model the old one-line summary, so it could not call `propose_booking` and fell back to curl-ing `/mcp` with the key from `.cursor/mcp.json`. Reviews stay fenced as untrusted. Tests: `test/mcp/format.test.ts` plus an extended search test; live check against the running server, using only the text output, passed 7/7 (search → get_provider with fenced injection → list_bookings → propose from parsed text → decline, no booking).
 - README: Haiku switch and `start:haiku`, demo accounts table, covered areas, `DEV_ROUTES` / `BOOK_SUCCESS_P` / limits env, Docker persona seeding, deliverables table (DEMO.md, traces/examples, redacted transcripts); removed a duplicated paragraph.
+
+## 2026-11-07 — README restructure
+
+- README rewritten for scanning: screenshots, highlights table, quick start, demo accounts with prompts, architecture and booking-sequence diagrams (Mermaid), model switch, MCP, testing; config, Docker and database folded into collapsible sections. Screenshots in `docs/images/` taken from a throwaway local account so demo personas stayed untouched. GitHub description and topics set.
