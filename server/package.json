@@ -9,6 +9,7 @@
     "test": "vitest run",
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "start:haiku": "MODEL_PROVIDER=anthropic tsx --env-file=../.env src/index.ts",
     "smoke:ollama": "tsx scripts/smoke-ollama.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "seed:demo-users": "tsx scripts/seed-demo-users.ts",
@@ -21,6 +22,7 @@
     "db:reset": "tsx scripts/db.ts reset"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.98",
     "@bellhop/shared": "*",
     "@better-auth/api-key": "^1.7.18",
     "@hono/mcp": "^0.3.5",

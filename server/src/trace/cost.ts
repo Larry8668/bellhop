@@ -9,6 +9,8 @@ export const COST_TABLE_USD_PER_1M_TOKENS: Record<string, { input: number; outpu
   'gpt-4o-mini': { input: 0.15, output: 0.6 },
   'claude-3-5-sonnet': { input: 3, output: 15 },
   'claude-3-5-haiku': { input: 0.8, output: 4 },
+  'claude-haiku-5-5': { input: 0.1, output: 0.5 },
+  'claude-sonnet-5-5': { input: 2, output: 10 },
 };
 
 const LOCAL_MODEL_PATTERN = /qwen|gemma|llama/i;

@@ -41,6 +41,8 @@ services:
       TRACES_DIR: /traces
       PROVIDER_URL: http://provider:4010
       OLLAMA_BASE_URL: http://host.docker.internal:11434
+      MODEL_PROVIDER: ${MODEL_PROVIDER:-ollama}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-secret-change-me}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:8080}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
