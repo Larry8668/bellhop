@@ -55,7 +55,7 @@ const PERSONAS: Persona[] = [
     slug: 'returning',
     booking: { service: 'electrician', area: 'Koramangala' },
     facts: (providerId) => [
-      { key: 'area', value: 'Koramangala', kind: 'explicit', status: 'active', tags: ['area:Koramangala'] },
+      { key: 'area', value: 'Koramangala', kind: 'explicit', status: 'active', tags: ['general', 'area:Koramangala'] },
       { key: 'not_before', value: '10:00', kind: 'explicit', status: 'active', tags: ['general'] },
       ...(providerId === undefined
         ? []
@@ -78,7 +78,7 @@ const PERSONAS: Persona[] = [
     slug: 'mover',
     booking: { service: 'ac_servicing', area: 'Whitefield' },
     facts: () => [
-      { key: 'area', value: 'Whitefield', kind: 'explicit', status: 'active', tags: ['area:Whitefield'] },
+      { key: 'area', value: 'Whitefield', kind: 'explicit', status: 'active', tags: ['general', 'area:Whitefield'] },
     ],
   },
 ];
@@ -148,8 +148,11 @@ async function createBooking(
   client: ReturnType<typeof createProviderClient>,
   admin: ReturnType<typeof createProviderAdminClient>,
 ): Promise<string> {
-  const from = systemClock.now().toISOString();
-  const to = new Date(systemClock.nowMs() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  // Book 2–5 days out so the booking is still upcoming during a demo (reschedule,
+  // cancel and provider-cancel all need a future slot).
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const from = new Date(systemClock.nowMs() + 2 * DAY_MS).toISOString();
+  const to = new Date(systemClock.nowMs() + 5 * DAY_MS).toISOString();
   const { providers } = await client.search_providers(userId, {
     service: spec.service,
     area: spec.area,

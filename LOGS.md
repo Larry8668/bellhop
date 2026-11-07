@@ -207,3 +207,11 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 
 **Verified**
 - Web 19/19, server 348/348. Every string, role and test id the tests query is unchanged.
+
+## 2026-11-07 — Demo data reset and transcript
+
+**Done**
+- Reset provider and server DBs and re-seeded: `fresh@` empty, `returning@` (CityCare booking + 3 active, 1 unconfirmed, 1 forgotten fact), `mover@` (AC servicing in Whitefield), `demo@` (54 memories, 40-message history).
+- Persona bookings now land 2–5 days out, so reschedule, cancel and provider-cancel still work during a demo; before, they could fall earlier the same day and turn into past bookings.
+- Home-area facts are tagged `general` plus `area:<x>`. Before, a new errand (no area yet) never received the saved area and the agent re-asked it. Now it's included as a default and still dropped when the user names a different area.
+- Exported this Claude Code session to `docs/transcripts/claude-code-final-session.md` (secrets and private-brief contents redacted); masked the brief filename in `cursor-main-session.md`.
