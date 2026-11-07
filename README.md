@@ -4,13 +4,14 @@
 
 Chat-based agent that arranges home-service errands (plumber, electrician, AC servicing…). It clarifies missing details, compares providers, asks for explicit approval before anything consequential, and recovers safely when tools fail. Everything runs locally against a mock provider service.
 
-The repo is an npm workspace: mock provider, Bellhop server, and React UI. `npm test` is offline. Chat with the model needs Ollama on the host. See `TODO.md` for what's next and `LOGS.md` for decisions.
+The repo is an npm workspace: mock provider, Bellhop server, and React UI. `npm test` is offline. Live chat uses Ollama (`qwen3.5:9b`) by default; an opt-in switch runs the same agent on Claude Haiku 5.5 for faster turns (see [Model](#model)). See `DESIGN.md` for the design note, `DEMO.md` for the demo script, `LOGS.md` for decisions, and `TODO.md` for what's left.
 
 ## Prerequisites
 
 - Node 24+
 - [Ollama](https://ollama.com) with `ollama pull qwen3.5:9b` (fallback: `ollama pull qwen3:8b`)
 - Ollama is only needed to chat with the agent and for the Ollama smoke test. **`npm test` runs fully offline** against a scripted model and the mock provider on an ephemeral port.
+- Optional: `ANTHROPIC_API_KEY` in the root `.env` to run the agent on Claude Haiku instead of Ollama.
 
 ## Layout
 
@@ -42,9 +43,18 @@ npm run seed:demo -w server
 # demo@bellhop.local / demo-pass-123
 ```
 
-`seed:demo` is idempotent. For the demo personas (`fresh@`, `returning@`, `mover@`, all `demo-pass-123`) run `npm run seed:demo-users -w server` with the provider running. See `DEMO.md` for the recording script.
+`seed:demo` is idempotent; `npm run db:seed -w server` seeds the same account. For the other demo personas run `npm run seed:demo-users -w server` with the provider running (it makes real bookings through the core engine). Provider seed data (151 providers across 5 areas) is applied on first boot and by `npm run db:seed -w provider`; it is not the demo login.
 
-`seed:demo` is idempotent. `npm run db:seed -w server` seeds the same account. Provider seed data is applied on first boot (and by `npm run db:seed -w provider`); it is not the demo login.
+### Demo accounts (password `demo-pass-123`)
+
+| Login | State | Shows |
+|---|---|---|
+| `fresh@bellhop.local` | empty | full booking from a vague request; live timeout-after-success |
+| `returning@bellhop.local` | electrician booking; explicit, inferred-unconfirmed and forgotten facts | "same electrician as last time"; inspect / correct / confirm / forget memory |
+| `mover@bellhop.local` | upcoming AC servicing in Whitefield | reschedule, cancel, provider-side cancellation and replacement |
+| `demo@bellhop.local` | 54 memories and a 40-message history | context budget: only relevant, active facts reach the model |
+
+Search covers Indiranagar, Koramangala, HSR Layout, Whitefield and Jayanagar; other areas return no providers.
 
 ## Run (dev)
 
@@ -62,9 +72,25 @@ npm run seed:demo -w server   # once; same BETTER_AUTH_SECRET and DB_PATH as the
 npm run dev -w web
 ```
 
+For a recording, start the provider with `PROVIDER_ADMIN=1 BOOK_SUCCESS_P=1` so bookings succeed unless you force a failure through `/__admin/scenario` (see below).
+
+## Model
+
+| Setting | Default | Notes |
+|---|---|---|
+| `MODEL_PROVIDER` | `ollama` | `anthropic` swaps the live model; tools, approvals, limits and traces are unchanged |
+| `MODEL` | `qwen3.5:9b` | Ollama model (`MODEL_FALLBACK` `qwen3:8b`) |
+| `ANTHROPIC_MODEL` | `claude-haiku-5-5` | used when `MODEL_PROVIDER=anthropic`; reads `ANTHROPIC_API_KEY` |
+
+```bash
+npm run start:haiku -w server     # MODEL_PROVIDER=anthropic, loads ../.env
+```
+
+On the same three-turn script, Qwen took about 139 s and Haiku about 12 s. The Anthropic path runs at low effort with thinking off and no `temperature`; see `LOGS.md` for why.
+
 Sign in at http://localhost:5173 with the demo account. Profile → "Create key" gives an API key for MCP.
 
-Env (all optional; defaults in `server/src/config.ts` and `provider/src/config.ts`): `MODEL` (default `qwen3.5:9b`), `MODEL_FALLBACK` (`qwen3:8b`), `OLLAMA_BASE_URL` (`http://localhost:11434`), `PROVIDER_URL` (`http://localhost:4010`), `PROVIDER_TIMEOUT_MS`, `DB_PATH`, `TRACES_DIR`, `SERVER_PORT` (`4000`), `WEB_ORIGIN` (`http://localhost:5173`), `BETTER_AUTH_SECRET` (default `dev-secret-change-me`), `BETTER_AUTH_URL` (`http://localhost:4000`). Provider: `PORT` (`4010`), `SEED`, `PROVIDER_ADMIN`, `TIMEOUT_DELAY_MS`, `HOLD_PRICE_DRIFT_PROB`, `DB_PATH`.
+Env (all optional; defaults in `server/src/config.ts` and `provider/src/config.ts`): `MODEL_PROVIDER` (`ollama`), `ANTHROPIC_MODEL`, `MODEL` (default `qwen3.5:9b`), `MODEL_FALLBACK` (`qwen3:8b`), `OLLAMA_BASE_URL` (`http://localhost:11434`), `PROVIDER_URL` (`http://localhost:4010`), `PROVIDER_TIMEOUT_MS`, `DB_PATH`, `TRACES_DIR`, `SERVER_PORT` (`4000`), `WEB_ORIGIN` (`http://localhost:5173`), `BETTER_AUTH_SECRET` (default `dev-secret-change-me`), `BETTER_AUTH_URL` (`http://localhost:4000`), `DEV_ROUTES` (on unless `NODE_ENV=production`; enables Bookings → "Simulate provider cancel"), `PROACTIVE_POLL_MS` (`15000`), `LIMIT_MODEL_CALLS_PER_TURN` (`8`), `LIMIT_TOOL_CALLS_PER_TURN` (`15`), `LIMIT_TURN_WALL_CLOCK_MS` (`120000`). Provider: `PORT` (`4010`), `SEED`, `PROVIDER_ADMIN`, `TIMEOUT_DELAY_MS`, `HOLD_PRICE_DRIFT_PROB`, `BOOK_SUCCESS_P` (`0.7`), `BOOK_SLOT_TAKEN_P` (`0.15`), `DB_PATH`.
 
 ## Run with Docker Compose
 
@@ -81,11 +107,11 @@ docker compose up --build
 | `server` | 4000 | http://localhost:4000/api/health and http://localhost:4000/mcp |
 | `provider` | 4010 | http://localhost:4010/health ; `/__admin` is on (`PROVIDER_ADMIN=1`) |
 
-Demo login is the same: `demo@bellhop.local` / `demo-pass-123`. On startup `server` runs `npm run db:migrate -w server`, then `npm run seed:demo -w server`, then `npm run start -w server`.
+Demo logins are the same (`demo-pass-123`). On startup `server` runs `npm run db:migrate -w server`, `npm run seed:demo -w server`, `npm run seed:demo-users -w server` (skipped if the provider isn't ready), then `npm run start -w server`. For Haiku: `MODEL_PROVIDER=anthropic docker compose up --build` (Compose reads `ANTHROPIC_API_KEY` from `.env`).
 
 SQLite files and traces are named volumes (`provider-data`, `server-data`, `traces`), not the files in your checkout. `BETTER_AUTH_SECRET` defaults to `dev-secret-change-me` via `${BETTER_AUTH_SECRET:-dev-secret-change-me}`. `BETTER_AUTH_URL` and `WEB_ORIGIN` default to `http://localhost:8080` so the proxied UI and Better Auth share one origin. Override them in the environment if you publish `web` on another host port.
 
-`MODEL` still defaults to `qwen3.5:9b`. Set `MODEL=qwen3:8b` on the `server` service if that is the model you pulled.
+`MODEL` still defaults to `qwen3.5:9b`. Set `MODEL=qwen3:8b` on the `server` service if that is the model you pulled. `BOOK_SUCCESS_P` / `BOOK_SLOT_TAKEN_P` pass through to the provider.
 
 ## Database
 
@@ -126,7 +152,7 @@ A file with no `-- migrate:down` section applies fine but `db:rollback`/`db:rese
 
 Endpoint: `http://localhost:4000/mcp` (Streamable HTTP). With Compose, the same route is also proxied at `http://localhost:8080/mcp`. Create a key on the Profile page. The server accepts `Authorization: Bearer <api key>` (also `x-api-key`). `user_id` comes from that key, never from tool arguments.
 
-Tools: `search_providers`, `get_provider` (reviews fenced as untrusted text), `list_bookings`, `whoami`, `propose_booking`, `propose_cancel`, `propose_reschedule`, `list_proposals`, `decline_proposal`. Booking, cancel, and reschedule still require approval (elicitation when the client supports it, otherwise confirm in the UI).
+Tools: `search_providers`, `get_provider` (reviews fenced as untrusted text), `list_bookings`, `whoami`, `propose_booking`, `propose_cancel`, `propose_reschedule`, `list_proposals`, `decline_proposal`. Booking, cancel, and reschedule still require approval (elicitation when the client supports it, otherwise confirm in the UI). Tool text output carries provider ids, exact slot start/end and booking ids, so text-only clients can call `propose_*` without reading `structuredContent`; reviews stay fenced as untrusted.
 
 Cursor (`.cursor/mcp.json`) or Claude Code:
 
@@ -178,10 +204,11 @@ Without forced scenarios the engine follows the spec's odds: `book` succeeds 70%
 
 | File | What |
 |---|---|
-| `DESIGN.md` | one-page design note with annotated trace excerpt (Phase 8) |
-| `EVALS.md` | generated by the test reporter, never hand-edited |
-| `BUGS.md` | real bugs hit while building, with regression tests |
+| `DESIGN.md` | one-page design note with an annotated timeout-after-success trace |
+| `EVALS.md` | generated by the test reporter (scenario · expected · actual · result · notes), never hand-edited |
+| `BUGS.md` | real bugs hit while building, with the regression test for each |
+| `DEMO.md` | demo runbook: personas, forced failures, script |
 | `LOGS.md` | dated decisions and progress |
-| `TODO.md` | what's next |
-| `traces/` | raw JSONL traces |
-| `docs/transcripts/` | AI-assistant transcripts, unedited |
+| `TODO.md` | what's left |
+| `traces/examples/` | committed raw traces (`timeout-after-success.jsonl`, `s01-happy-path.jsonl`); live runs write `traces/*.jsonl` (gitignored) |
+| `docs/transcripts/` | AI-assistant transcripts (Claude Code, Cursor, planning chat); secrets redacted |
