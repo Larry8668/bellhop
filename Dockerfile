@@ -53,7 +53,7 @@ EXPOSE 4000
 VOLUME ["/data", "/traces"]
 # Boot already migrates; these scripts are the documented migrate + demo seed,
 # and both are idempotent across restarts of the same volume.
-CMD ["sh", "-c", "npm run db:migrate -w server && npm run seed:demo -w server && exec npm run start -w server"]
+CMD ["sh", "-c", "npm run db:migrate -w server && npm run seed:demo -w server && (npm run seed:demo-users -w server || echo personas skipped) && exec npm run start -w server"]
 
 FROM nginx:1.27-alpine AS web
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
