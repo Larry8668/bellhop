@@ -1,6 +1,7 @@
 # Transcripts index
 
 - `bellhop-planning-transcript.md` — claude.ai planning chat before implementation.
+- `claude-code-final-session.md` — Claude Code parent agent for the final push (Phases 3–8 via Cursor Grok delegates, wiring, live Qwen/Haiku testing, Docker, UI revamp, demo personas). User messages and replies verbatim; tool calls with inputs; results clipped; reasoning omitted; secrets and private-brief contents redacted.
 - `cursor-main-session.md` — Cursor parent agent session (a23f5f22), full build conversation; tool calls summarised.
 - `cursor-subagents/` — other Cursor sessions and subagents of this project, one file each:
   - `016aa612-0fac-460b-91aa-eebfe9b2cdde.md` (separate session, 12 turns) — Saturday, Nov 7, 2026, 12:22 AM (UTC+5:30) Repository: /Users/leharadityakumar/project/bellhopper You are acti

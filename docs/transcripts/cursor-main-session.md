@@ -37,7 +37,7 @@ I'm going to look around the workspace first to see what's in it.
 
 > **tool:** `Read` — `/Users/leharadityakumar/project/bellhopper/docs/bellhopper-plan.md`
 
-> **tool:** `Read` — `/Users/leharadityakumar/project/bellhopper/docs/internal/Orange_Engineering_Assignment.pdf`
+> **tool:** `Read` — `/Users/leharadityakumar/project/bellhopper/docs/internal/internal-brief.pdf`
 
 > **tool:** `Read` — `/Users/leharadityakumar/project/bellhopper/docs/transcripts/bellhop-planning-transcript.md`
 
@@ -67,7 +67,7 @@ Environment checks pass, with gh authenticated and both qwen models pulled. Next
 
 ## Assistant
 
-> **tool:** `Shell` — `git init -b main && git add -A && git status --short && echo "--- internal excluded? ---" && git check-ignore -v docs/internal/Orange_Engineering_Assignment.pdf`
+> **tool:** `Shell` — `git init -b main && git add -A && git status --short && echo "--- internal excluded? ---" && git check-ignore -v docs/internal/internal-brief.pdf`
 
 ## Assistant
 
@@ -1500,11 +1500,11 @@ I'm laying out the Phase 1 design: the user wants up to four parallel subagents,
 
 I'm settling on a plan to cut Phase 1 into waves, starting with a shared contracts layer in `@bellhop/shared` (zod schemas for the eight tools and their error codes) so the provider and server both depend on the same definitions. That first wave is small and has to finish before anything else, so I'm leaning toward delegating it with a precise spec.
 
-> **tool:** `Shell` — `cd /Users/leharadityakumar/project/bellhopper && ls docs/internal/ && (command -v pdftotext >/dev/null && pdftotext docs/internal/Orange_Engineering_Assignment.pdf - | grep -n -i -A3 'search_providers…`
+> **tool:** `Shell` — `cd /Users/leharadityakumar/project/bellhopper && ls docs/internal/ && (command -v pdftotext >/dev/null && pdftotext docs/internal/internal-brief.pdf - | grep -n -i -A3 'search_providers…`
 
 ## Assistant
 
-> **tool:** `Read` — `/Users/leharadityakumar/project/bellhopper/docs/internal/Orange_Engineering_Assignment.pdf`
+> **tool:** `Read` — `/Users/leharadityakumar/project/bellhopper/docs/internal/internal-brief.pdf`
 
 ## Assistant
 
