@@ -11,6 +11,7 @@
     "start": "tsx src/index.ts",
     "smoke:ollama": "tsx scripts/smoke-ollama.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
+    "seed:demo-users": "tsx scripts/seed-demo-users.ts",
     "db:gen-auth": "tsx scripts/gen-auth-migration.ts",
     "db:migrate": "tsx scripts/db.ts up",
     "db:rollback": "tsx scripts/db.ts down",
