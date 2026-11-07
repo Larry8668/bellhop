@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { api } from '../api/index.js';
 import type { ApiKey, CreateApiKeyResult, Fact } from '../api/types.js';
+import { useSession } from '../auth/SessionProvider.js';
 import { Layout } from '../components/Layout.js';
 import { Button } from '../components/Button.js';
 import { Badge } from '../components/Badge.js';
@@ -28,56 +29,62 @@ function FactCard({
   onForget: () => void;
   onConfirm: () => void;
 }): React.ReactElement {
+  const dirty = draft !== fact.value;
   return (
-    <li
-      aria-label={fact.key}
-      className="rounded-xl border border-zinc-200 bg-white p-3 text-sm"
-    >
+    <li aria-label={fact.key} className="p-4 sm:px-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-mono text-xs text-zinc-800">{fact.key}</span>
-        <Badge tone={fact.kind === 'explicit' ? 'info' : 'warning'}>{fact.kind}</Badge>
+        <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 font-mono text-xs text-zinc-700">
+          {fact.key}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <Badge tone={fact.kind === 'explicit' ? 'accent' : 'warning'}>{fact.kind}</Badge>
+          <Badge tone={fact.status === 'active' ? 'success' : 'default'}>{fact.status}</Badge>
+        </div>
       </div>
-      <label className="mt-2 block text-xs text-zinc-500">
-        Value
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
-          className="mt-1 w-full rounded border border-zinc-200 px-2 py-1 text-sm text-zinc-900"
+          className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 min-w-0 flex-1"
           value={draft}
           aria-label={`Value for ${fact.key}`}
           onChange={(e) => onDraft(e.target.value)}
           disabled={busy}
         />
-      </label>
-      <div className="mt-2 flex flex-wrap gap-1">
-        <Button
-          variant="secondary"
-          className="!px-2 !py-1 !text-xs"
-          disabled={busy}
-          onClick={onSave}
-        >
-          Save
-        </Button>
-        <Button
-          variant="ghost"
-          className="!px-2 !py-1 !text-xs"
-          disabled={busy}
-          onClick={onForget}
-        >
-          Forget
-        </Button>
-        {fact.status === 'unconfirmed' ? (
+        <div className="flex flex-wrap items-center gap-1.5">
           <Button
-            variant="primary"
-            className="!px-2 !py-1 !text-xs"
+            variant="secondary"
+            className="!px-3 !py-1.5 !text-xs"
             disabled={busy}
-            onClick={onConfirm}
+            onClick={onSave}
           >
-            Confirm
+            Save
           </Button>
-        ) : null}
+          {fact.status === 'unconfirmed' ? (
+            <Button
+              variant="primary"
+              className="!px-3 !py-1.5 !text-xs"
+              disabled={busy}
+              onClick={onConfirm}
+            >
+              Confirm
+            </Button>
+          ) : null}
+          <Button
+            variant="ghost"
+            className="!px-3 !py-1.5 !text-xs hover:!bg-rose-50 hover:!text-rose-700"
+            disabled={busy}
+            onClick={onForget}
+          >
+            Forget
+          </Button>
+          {dirty ? <span className="text-[11px] text-zinc-400">Unsaved</span> : null}
+        </div>
       </div>
     </li>
   );
 }
+
+const SECTION_LABEL = 'text-xs font-medium uppercase tracking-wide text-zinc-500';
+const CARD = 'rounded-2xl border border-zinc-200/80 bg-white shadow-sm';
 
 export function Profile(): React.ReactElement {
   const [facts, setFacts] = useState<Fact[]>([]);
@@ -206,12 +213,31 @@ export function Profile(): React.ReactElement {
     );
   }
 
+  const { user } = useSession();
+  const initial = (user?.name || user?.email || '?').trim().charAt(0).toUpperCase();
+
   return (
     <Layout>
       <div className="space-y-8">
-        <div>
-          <h1 className="text-lg font-semibold text-zinc-900">Profile</h1>
-          <p className="text-sm text-zinc-600">Facts the agent may use, and MCP API keys.</p>
+        <div className="flex items-center gap-4">
+          <span
+            aria-hidden
+            className="inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xl font-semibold text-white shadow-sm"
+          >
+            {initial}
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Profile</h1>
+            <p className="text-sm text-zinc-500">
+              Facts the agent may use, and MCP API keys.
+            </p>
+            {user ? (
+              <p className="mt-0.5 truncate text-xs text-zinc-400">
+                {user.name ? `${user.name} · ` : ''}
+                {user.email}
+              </p>
+            ) : null}
+          </div>
         </div>
 
         {error ? <ErrorBanner>{error}</ErrorBanner> : null}
@@ -220,95 +246,113 @@ export function Profile(): React.ReactElement {
           <Spinner label="Loading profile" />
         ) : (
           <>
-            <section>
-              <h2 className="text-sm font-semibold text-zinc-900">Facts</h2>
+            <section className="space-y-3">
+              <div>
+                <h2 className={SECTION_LABEL}>Facts</h2>
+              </div>
               {active.length === 0 && needsConfirmation.length === 0 ? (
-                <p className="mt-2 text-sm text-zinc-500">
-                  No facts yet. Facts you share with Bellhop will show up here.
-                </p>
+                <div className={`${CARD} px-5 py-10 text-center`}>
+                  <p className="text-sm text-zinc-500">
+                    No facts yet. Facts you share with Bellhop will show up here.
+                  </p>
+                </div>
               ) : (
-                <div className="mt-3 space-y-6">
+                <div className="space-y-5">
                   {active.length > 0 ? (
                     <section aria-label="Active" className="space-y-2">
                       <h3 className="text-sm font-medium text-zinc-800">Active</h3>
-                      <ul className="space-y-2">{active.map(renderFact)}</ul>
+                      <ul className={`${CARD} divide-y divide-zinc-100`}>{active.map(renderFact)}</ul>
                     </section>
                   ) : null}
                   {needsConfirmation.length > 0 ? (
                     <section aria-label="Needs confirmation" className="space-y-2">
                       <h3 className="text-sm font-medium text-zinc-800">Needs confirmation</h3>
-                      <ul className="space-y-2">{needsConfirmation.map(renderFact)}</ul>
+                      <ul className={`${CARD} divide-y divide-zinc-100`}>
+                        {needsConfirmation.map(renderFact)}
+                      </ul>
                     </section>
                   ) : null}
                 </div>
               )}
             </section>
 
-            <section>
-              <h2 className="text-sm font-semibold text-zinc-900">API keys</h2>
-              <form
-                className="mt-2 flex flex-wrap items-end gap-2"
-                onSubmit={(e) => void onCreateKey(e)}
-              >
-                <label className="block text-sm text-zinc-700">
-                  Name
-                  <input
-                    className="mt-1 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm sm:w-auto"
-                    value={newKeyName}
-                    onChange={(e) => setNewKeyName(e.target.value)}
-                    placeholder="e.g. Claude Desktop"
-                  />
-                </label>
-                <Button type="submit" disabled={busyId === 'new-key'}>
-                  Create key
-                </Button>
-              </form>
+            <section className="space-y-3">
+              <h2 className={SECTION_LABEL}>API keys</h2>
+              <div className={`${CARD} space-y-5 p-4 sm:p-5`}>
+                <form
+                  className="flex flex-col gap-2 sm:flex-row sm:items-end"
+                  onSubmit={(e) => void onCreateKey(e)}
+                >
+                  <label className="block flex-1 text-xs font-medium text-zinc-600">
+                    Name
+                    <input
+                      className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10 mt-1.5 block w-full"
+                      value={newKeyName}
+                      onChange={(e) => setNewKeyName(e.target.value)}
+                      placeholder="e.g. Claude Desktop"
+                    />
+                  </label>
+                  <Button type="submit" disabled={busyId === 'new-key'}>
+                    Create key
+                  </Button>
+                </form>
 
-              {plaintextKey && snippet ? (
-                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-                  <p className="font-medium">Copy this key now — it is only shown once.</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <code className="break-all rounded bg-white px-2 py-1 text-xs text-zinc-900">
-                      {plaintextKey}
-                    </code>
+                {plaintextKey && snippet ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-950">
+                    <p className="font-medium">Copy this key now — it is only shown once.</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <code className="min-w-0 break-all rounded-lg bg-white px-2 py-1 font-mono text-xs text-zinc-900 ring-1 ring-inset ring-amber-200">
+                        {plaintextKey}
+                      </code>
+                      <Button
+                        variant="secondary"
+                        className="!px-3 !py-1 !text-xs"
+                        onClick={() => void copyText(plaintextKey)}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                    <p className="mt-4 text-xs font-medium uppercase tracking-wide text-amber-900/70">
+                      MCP config
+                    </p>
+                    <pre className="mt-1.5 overflow-x-auto rounded-xl bg-zinc-900 p-4 font-mono text-xs leading-relaxed text-zinc-100">
+                      {snippet}
+                    </pre>
                     <Button
                       variant="secondary"
-                      className="!text-xs"
-                      onClick={() => void copyText(plaintextKey)}
+                      className="mt-3 !px-3 !py-1 !text-xs"
+                      onClick={() => void copyText(snippet)}
                     >
-                      Copy
+                      Copy config
                     </Button>
                   </div>
-                  <p className="mt-3 text-xs font-medium text-amber-950">MCP config</p>
-                  <pre className="mt-1 overflow-x-auto rounded bg-white p-2 text-xs text-zinc-900">
-                    {snippet}
-                  </pre>
-                  <Button
-                    variant="secondary"
-                    className="mt-2 !text-xs"
-                    onClick={() => void copyText(snippet)}
-                  >
-                    Copy config
-                  </Button>
-                </div>
-              ) : null}
+                ) : null}
 
-              <ul className="mt-4 space-y-2">
-                {keys.map((k) => (
-                  <li
-                    key={k.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-medium text-zinc-900">{k.name}</div>
-                      <div className="text-xs break-all text-zinc-500">
-                        {k.prefix ?? k.start ?? 'key'}… · created{' '}
-                        {new Date(k.createdAt).toLocaleString()}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                {keys.length > 0 ? (
+                  <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200/80">
+                    {keys.map((k) => (
+                      <li key={k.id} className="flex items-center gap-3 px-4 py-3 text-sm">
+                        <span
+                          aria-hidden
+                          className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-zinc-500"
+                        >
+                          <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="8" cy="15" r="4" />
+                            <path d="m11 12 9-9M16 7l3 3" />
+                          </svg>
+                        </span>
+                        <div className="min-w-0">
+                          <div className="font-medium text-zinc-900">{k.name}</div>
+                          <div className="break-all text-xs tabular-nums text-zinc-500">
+                            {k.prefix ?? k.start ?? 'key'}… · created{' '}
+                            {new Date(k.createdAt).toLocaleString()}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
             </section>
           </>
         )}

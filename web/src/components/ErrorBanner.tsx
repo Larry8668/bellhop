@@ -9,11 +9,16 @@ export function ErrorBanner({
 }): React.ReactElement {
   return (
     <div
-      className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
+      className="flex gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-sm text-rose-900"
       role="alert"
     >
-      <p className="font-medium">{title}</p>
-      <div className="mt-1 text-red-800">{children}</div>
+      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-rose-500 text-[11px] font-bold text-white" aria-hidden>
+        !
+      </span>
+      <div className="min-w-0">
+        <p className="font-medium">{title}</p>
+        <div className="mt-0.5 text-rose-800">{children}</div>
+      </div>
     </div>
   );
 }

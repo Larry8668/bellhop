@@ -1,17 +1,18 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 
 const toneClass: Record<string, string> = {
-  default: 'bg-zinc-100 text-zinc-800',
-  success: 'bg-emerald-100 text-emerald-900',
-  warning: 'bg-amber-100 text-amber-900',
-  danger: 'bg-red-100 text-red-900',
-  info: 'bg-sky-100 text-sky-900',
-  accent: 'bg-violet-100 text-violet-900',
+  default: 'bg-zinc-100 text-zinc-700 ring-zinc-200',
+  success: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  warning: 'bg-amber-50 text-amber-800 ring-amber-200',
+  danger: 'bg-rose-50 text-rose-700 ring-rose-200',
+  info: 'bg-sky-50 text-sky-700 ring-sky-200',
+  accent: 'bg-indigo-50 text-indigo-700 ring-indigo-200',
 };
 
 export function Badge({
   tone = 'default',
   children,
+  className = '',
   ...rest
 }: {
   tone?: keyof typeof toneClass;
@@ -19,7 +20,7 @@ export function Badge({
 } & Omit<HTMLAttributes<HTMLSpanElement>, 'children'>): React.ReactElement {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${toneClass[tone] ?? toneClass.default}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${toneClass[tone] ?? toneClass.default} ${className}`.trim()}
       {...rest}
     >
       {children}

@@ -45,66 +45,76 @@ export function ApprovalCard({
   const holdDate = new Date(proposal.hold_expires_at);
   if (!Number.isNaN(holdDate.getTime())) holdLocal = holdDate.toLocaleString();
 
+  const rows: { label: string; value: React.ReactNode }[] = [
+    { label: 'Provider', value: proposal.provider_name },
+    { label: 'Service', value: proposal.service },
+    { label: 'Slot (local time)', value: formatLocalRange(proposal.slot.start, proposal.slot.end) },
+  ];
+
   return (
     <div
-      className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm"
+      className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.06)]"
       data-testid="approval-card"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-amber-950">Approval needed</h3>
-        {proposal.expired ? (
-          <Badge tone="danger" title="Expired">
-            Expired
-          </Badge>
-        ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-100 bg-gradient-to-r from-amber-50 to-white px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-7 items-center justify-center rounded-full bg-amber-100 text-amber-700" aria-hidden>
+            <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z" />
+              <path d="m9 12 2 2 4-4" />
+            </svg>
+          </span>
+          <div>
+            <h3 className="text-sm font-semibold text-zinc-900">Approval needed</h3>
+            <p className="text-xs text-zinc-500">Review the exact details below before anything is booked.</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Badge tone="accent">{actionLabel(proposal.action)}</Badge>
+          {proposal.expired ? (
+            <Badge tone="danger" title="Expired">
+              Expired
+            </Badge>
+          ) : null}
+        </div>
       </div>
-      <p className="mt-1 text-xs text-amber-900">
-        Review the exact details below before anything is booked.
-      </p>
-      <dl className="mt-3 grid gap-2 text-sm text-zinc-900">
-        <div className="flex justify-between gap-2">
-          <dt className="text-zinc-500">Action</dt>
-          <dd className="font-medium">{actionLabel(proposal.action)}</dd>
+      <div className="grid gap-4 p-4 sm:grid-cols-[1fr_auto]">
+        <dl className="grid gap-2.5 text-sm">
+          <div className="sr-only">
+            <dt>Action</dt>
+            <dd>{actionLabel(proposal.action)}</dd>
+          </div>
+          {rows.map((r) => (
+            <div key={r.label} className="grid grid-cols-[8.5rem_1fr] gap-2">
+              <dt className="text-zinc-500">{r.label}</dt>
+              <dd className="min-w-0 font-medium break-words text-zinc-900">{r.value}</dd>
+            </div>
+          ))}
+        </dl>
+        <div className="flex flex-row items-end justify-between gap-4 rounded-xl bg-zinc-50 px-4 py-3 sm:flex-col sm:items-end sm:justify-center">
+          <div className="sm:text-right">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Price</p>
+            <p className="text-xl font-semibold tabular-nums text-zinc-900">
+              {proposal.price} {proposal.currency}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Hold expires</p>
+            <p className="text-sm font-semibold tabular-nums text-amber-700">
+              <span data-testid="hold-countdown">{countdown}</span>
+            </p>
+            <span className="block text-[11px] text-zinc-500">{holdLocal}</span>
+          </div>
         </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-zinc-500">Provider</dt>
-          <dd className="min-w-0 text-right font-medium">{proposal.provider_name}</dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-zinc-500">Service</dt>
-          <dd className="min-w-0 text-right font-medium">{proposal.service}</dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="shrink-0 text-zinc-500">Slot (local time)</dt>
-          <dd className="min-w-0 text-right font-medium break-words">
-            {formatLocalRange(proposal.slot.start, proposal.slot.end)}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-zinc-500">Price</dt>
-          <dd className="font-medium">
-            {proposal.price} {proposal.currency}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-2">
-          <dt className="text-zinc-500">Hold expires</dt>
-          <dd className="text-right font-medium">
-            <span data-testid="hold-countdown">{countdown}</span>
-            <span className="block text-xs font-normal text-zinc-600">{holdLocal}</span>
-          </dd>
-        </div>
-      </dl>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Button
-          variant="primary"
-          disabled={busy || proposal.expired}
-          onClick={onConfirm}
-        >
+      </div>
+      <div className="flex flex-wrap items-center gap-2 border-t border-zinc-100 bg-zinc-50/60 px-4 py-3">
+        <Button variant="primary" disabled={busy || proposal.expired} onClick={onConfirm}>
           Confirm
         </Button>
         <Button variant="secondary" disabled={busy} onClick={onDecline}>
           Decline
         </Button>
+        <span className="ml-auto hidden text-[11px] text-zinc-400 sm:inline">Price is the provider&apos;s held price</span>
       </div>
     </div>
   );

@@ -15,28 +15,29 @@ export function OutcomeFeedback({
   feedback: { message: string; outcome: ExecutionOutcome };
 }): React.ReactElement {
   return (
-    <div className="mt-3 space-y-2">
+    <div className="space-y-2">
       {feedback.outcome.kind === 'unconfirmed' ? (
         <div
-          className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-sm"
           role="status"
         >
           <p className="font-medium">Unconfirmed</p>
           <p className="mt-0.5">{feedback.message}</p>
         </div>
       ) : (
-        <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+        <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white px-4 py-3 text-sm text-zinc-800 shadow-sm">
+          <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-emerald-700">
+            <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
             Verified outcome
           </p>
-          <p className="mt-1 font-medium capitalize">
+          <p className="mt-1 font-semibold capitalize text-zinc-900">
             {feedback.outcome.kind.replace(/_/g, ' ')}
           </p>
           <p className="mt-0.5">{feedback.message}</p>
         </div>
       )}
       {feedback.outcome.kind === 'slot_gone' ? (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800">
+        <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-800 shadow-sm">
           <p className="font-medium">Alternatives</p>
           {Array.isArray(slotAlternatives(feedback.outcome)) ? (
             <ul className="mt-1 list-inside list-disc">

@@ -4,6 +4,7 @@ import { Link, Navigate, useLocation } from 'react-router';
 import { api } from '../api/index.js';
 import { ApiError } from '../api/client.js';
 import { useSession } from '../auth/SessionProvider.js';
+import { BrandMark } from '../components/Layout.js';
 import { Button } from '../components/Button.js';
 import { ErrorBanner } from '../components/ErrorBanner.js';
 import { Spinner } from '../components/Spinner.js';
@@ -49,15 +50,19 @@ export function Login(): React.ReactElement {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col justify-center bg-zinc-50 px-4 py-10">
-      <div className="mx-auto w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <h1 className="text-xl font-semibold text-zinc-900">
+    <div className="app-canvas flex min-h-dvh flex-col justify-center px-4 py-10">
+      <div className="mx-auto w-full max-w-sm rounded-2xl border border-zinc-200/80 bg-white p-6 shadow-lg shadow-zinc-900/5 sm:p-8">
+        <div className="mb-5 flex items-center gap-2 text-[15px] font-semibold tracking-tight text-zinc-900">
+          <BrandMark />
+          Bellhop
+        </div>
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">
           {mode === 'signin' ? 'Sign in' : 'Create account'}
         </h1>
-        <p className="mt-1 text-sm text-zinc-600">
+        <p className="mt-1 text-sm text-zinc-500">
           Bellhop never books without your approval.
         </p>
-        <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+        <p className="mt-4 rounded-xl bg-indigo-50/60 px-3 py-2.5 text-xs text-zinc-600 ring-1 ring-inset ring-indigo-100">
           Demo account:{' '}
           <span className="font-mono text-zinc-900">demo@bellhop.local</span>
           {' / '}
@@ -72,10 +77,10 @@ export function Login(): React.ReactElement {
 
         <form className="mt-4 space-y-3" onSubmit={(e) => void onSubmit(e)}>
           {mode === 'signup' ? (
-            <label className="block text-sm font-medium text-zinc-700">
+            <label className="block text-xs font-medium text-zinc-600">
               Name
               <input
-                className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+                className="mt-1.5 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
                 value={name}
                 onChange={(ev) => setName(ev.target.value)}
                 autoComplete="name"
@@ -83,10 +88,10 @@ export function Login(): React.ReactElement {
               />
             </label>
           ) : null}
-          <label className="block text-sm font-medium text-zinc-700">
+          <label className="block text-xs font-medium text-zinc-600">
             Email
             <input
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              className="mt-1.5 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
               type="email"
               value={email}
               onChange={(ev) => setEmail(ev.target.value)}
@@ -94,10 +99,10 @@ export function Login(): React.ReactElement {
               required
             />
           </label>
-          <label className="block text-sm font-medium text-zinc-700">
+          <label className="block text-xs font-medium text-zinc-600">
             Password
             <input
-              className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+              className="mt-1.5 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
               type="password"
               value={password}
               onChange={(ev) => setPassword(ev.target.value)}
@@ -137,7 +142,7 @@ export function Login(): React.ReactElement {
               No account?{' '}
               <button
                 type="button"
-                className="font-medium text-zinc-900 underline"
+                className="font-medium text-indigo-600 hover:text-indigo-700 hover:underline"
                 onClick={() => {
                   setMode('signup');
                   setError(null);
@@ -151,7 +156,7 @@ export function Login(): React.ReactElement {
               Already have an account?{' '}
               <button
                 type="button"
-                className="font-medium text-zinc-900 underline"
+                className="font-medium text-indigo-600 hover:text-indigo-700 hover:underline"
                 onClick={() => {
                   setMode('signin');
                   setError(null);
@@ -164,7 +169,7 @@ export function Login(): React.ReactElement {
         </p>
 
         <p className="mt-6 text-center text-xs text-zinc-500">
-          <Link className="underline" to="/">
+          <Link className="hover:text-zinc-900 hover:underline" to="/">
             Back to app
           </Link>
         </p>

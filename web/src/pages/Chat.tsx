@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/index.js';
 import type { ChatMessage, ExecutionOutcome, ProposalDetail, TaskState, TraceEvent } from '../api/types.js';
-import { Layout } from '../components/Layout.js';
+import { BrandMark, Layout } from '../components/Layout.js';
+import { Markdown } from '../components/Markdown.js';
 import { ApprovalCard } from '../components/ApprovalCard.js';
 import { TracePanel } from '../components/TracePanel.js';
 import { TaskChip } from '../components/TaskChip.js';
@@ -19,18 +20,6 @@ function pickPending(list: ProposalDetail[]): ProposalDetail | null {
   const candidates = list.filter((p) => p.status === 'pending' && !p.expired);
   if (candidates.length === 0) return null;
   return candidates.reduce((best, p) => (p.updated_at >= best.updated_at ? p : best));
-}
-
-function bubbleClass(role: ChatMessage['role']): string {
-  if (role === 'user') return 'ml-auto max-w-[85%] bg-zinc-900 text-white';
-  if (role === 'system') return 'mx-auto max-w-full bg-transparent text-center text-xs text-zinc-500';
-  return 'mr-auto max-w-[85%] bg-zinc-100 text-zinc-900';
-}
-
-function roleLabel(role: ChatMessage['role']): string {
-  if (role === 'user') return 'You';
-  if (role === 'assistant') return 'Bellhop';
-  return 'System';
 }
 
 export function Chat(): React.ReactElement {
@@ -202,159 +191,245 @@ export function Chat(): React.ReactElement {
     }
   }
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, [input]);
+
+  const empty = !loading && !loadError && messages.length === 0 && !pending;
+
   return (
-    <Layout>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <div className="flex min-h-[24rem] min-w-0 flex-1 flex-col rounded-xl border border-zinc-200 bg-white">
-          <div className="border-b border-zinc-100 px-4 py-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h1 className="text-lg font-semibold text-zinc-900">Chat</h1>
-                <p className="text-xs text-zinc-500">
-                  Proposals appear here for explicit approval before booking.
-                </p>
+    <Layout fill>
+      <div className="relative flex min-h-0 flex-1">
+        <section className="flex min-w-0 flex-1 flex-col">
+          <div className="border-b border-zinc-200/60 bg-white/60 backdrop-blur-sm">
+            <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3 px-4 py-2">
+              <div className="min-w-0 [&_[data-testid=task-chip]]:mt-0">
                 <TaskChip task={task} />
               </div>
               <Button
                 variant={traceOpen ? 'secondary' : 'ghost'}
-                className="shrink-0"
+                className="shrink-0 !px-3 !py-1.5 !text-xs"
                 aria-pressed={traceOpen}
                 onClick={() => setTraceOpen((v) => !v)}
               >
+                <TraceIcon />
                 {traceOpen ? 'Hide trace' : 'Trace'}
               </Button>
             </div>
           </div>
 
-          {loadError ? (
-            <div className="p-4">
-              <ErrorBanner>{loadError}</ErrorBanner>
-              <Button
-                className="mt-3"
-                variant="secondary"
-                onClick={() => {
-                  setLoading(true);
-                  setLoadError(null);
-                  void refreshLive()
-                    .catch((err: unknown) => {
-                      log.error({ err }, 'chat reload failed');
-                      setLoadError(errorMessage(err, 'Could not load messages'));
-                    })
-                    .finally(() => setLoading(false));
-                }}
-              >
-                Retry
-              </Button>
-            </div>
-          ) : null}
-
-          {sendError ? (
-            <div className="px-4 pt-4">
-              <ErrorBanner>{sendError}</ErrorBanner>
-            </div>
-          ) : null}
-
-          <div
-            ref={listRef}
-            className="max-h-[50dvh] min-h-[12rem] flex-1 space-y-3 overflow-y-auto px-4 py-3"
-            aria-label="Conversation"
-          >
-            {loading ? (
-              <Spinner label="Loading messages" />
-            ) : (
-              messages.map((m) => (
-                <div key={m.id} className={`rounded-lg px-3 py-2 text-sm ${bubbleClass(m.role)}`}>
-                  <p className="text-[10px] font-medium uppercase tracking-wide opacity-70">
-                    {roleLabel(m.role)}
-                  </p>
-                  <p className="whitespace-pre-wrap">{m.text}</p>
-                  {m.proposalId ? (
-                    <a
-                      href="#approval-card"
-                      className="mt-2 inline-block rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-medium text-amber-950"
-                    >
-                      see approval card
-                    </a>
-                  ) : null}
-                  <p className="mt-1 text-[10px] opacity-70">
-                    {new Date(m.createdAt).toLocaleString()}
-                  </p>
+          <div ref={listRef} className="thin-scroll min-h-0 flex-1 overflow-y-auto" aria-label="Conversation">
+            <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 pb-6 pt-8">
+              {loadError ? (
+                <div>
+                  <ErrorBanner>{loadError}</ErrorBanner>
+                  <Button
+                    className="mt-3"
+                    variant="secondary"
+                    onClick={() => {
+                      setLoading(true);
+                      setLoadError(null);
+                      void refreshLive()
+                        .catch((err: unknown) => {
+                          log.error({ err }, 'chat reload failed');
+                          setLoadError(errorMessage(err, 'Could not load messages'));
+                        })
+                        .finally(() => setLoading(false));
+                    }}
+                  >
+                    Retry
+                  </Button>
                 </div>
-              ))
-            )}
-          </div>
+              ) : null}
 
-          {sending ? (
-            <div className="px-4 pb-2">
-              <Spinner label="Bellhop is working…" />
-            </div>
-          ) : null}
+              {loading ? <Spinner label="Loading messages" /> : null}
 
-          {proactiveNotice ? (
-            <div
-              className="border-t border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-              role="status"
-            >
-              <p>{proactiveNotice}</p>
-              <Button
-                variant="ghost"
-                className="mt-2 !px-2 !py-1 !text-xs"
-                onClick={() => setProactiveNotice(null)}
-              >
-                Dismiss
-              </Button>
-            </div>
-          ) : null}
+              {empty ? <EmptyState onPick={(t) => { setInput(t); textareaRef.current?.focus(); }} /> : null}
 
-          {verified ? (
-            <div className="border-t border-zinc-100 px-4 py-3">
-              <OutcomeFeedback feedback={verified} />
-            </div>
-          ) : null}
+              {!loading
+                ? messages.map((m) => <MessageRow key={m.id} message={m} />)
+                : null}
 
-          {pending ? (
-            <div id="approval-card" className="border-t border-zinc-100 px-4 py-3">
-              <ApprovalCard
-                proposal={pending}
-                busy={actionBusy}
-                onConfirm={() => void handleConfirm()}
-                onDecline={() => void handleDecline()}
-              />
-            </div>
-          ) : null}
+              {sending ? (
+                <div className="flex gap-3 animate-rise">
+                  <BrandMark className="size-7 shrink-0" />
+                  <div className="pt-1">
+                    <Spinner label="Bellhop is working…" />
+                  </div>
+                </div>
+              ) : null}
 
-          <div className="border-t border-zinc-100 p-3">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <textarea
-                className="min-h-[44px] w-full flex-1 resize-none rounded-lg border border-zinc-300 px-3 py-2 text-sm disabled:bg-zinc-100"
-                placeholder="Type a message…"
-                value={input}
-                disabled={sending}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    void handleSend();
-                  }
-                }}
-              />
-              <Button
-                className="sm:self-end"
-                disabled={sending || input.trim() === ''}
-                onClick={() => void handleSend()}
-              >
-                Send
-              </Button>
+              {proactiveNotice ? (
+                <div
+                  className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950 shadow-sm animate-rise"
+                  role="status"
+                >
+                  <span className="mt-1 size-2 shrink-0 animate-pulse rounded-full bg-amber-500" aria-hidden />
+                  <p className="flex-1">{proactiveNotice}</p>
+                  <Button
+                    variant="ghost"
+                    className="!px-2 !py-0.5 !text-xs"
+                    onClick={() => setProactiveNotice(null)}
+                  >
+                    Dismiss
+                  </Button>
+                </div>
+              ) : null}
+
+              {verified ? (
+                <div className="pl-10 animate-rise">
+                  <OutcomeFeedback feedback={verified} />
+                </div>
+              ) : null}
+
+              {pending ? (
+                <div id="approval-card" className="pl-0 sm:pl-10 animate-rise">
+                  <ApprovalCard
+                    proposal={pending}
+                    busy={actionBusy}
+                    onConfirm={() => void handleConfirm()}
+                    onDecline={() => void handleDecline()}
+                  />
+                </div>
+              ) : null}
             </div>
           </div>
-        </div>
+
+          <div className="bg-gradient-to-t from-[#fafaf9] via-[#fafaf9] to-transparent pt-2">
+            <div className="mx-auto w-full max-w-3xl px-4 pb-4">
+              {sendError ? (
+                <div className="mb-2">
+                  <ErrorBanner>{sendError}</ErrorBanner>
+                </div>
+              ) : null}
+              <div className="flex items-end gap-2 rounded-3xl border border-zinc-200 bg-white p-2 pl-4 shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition focus-within:border-zinc-300 focus-within:shadow-[0_8px_30px_rgb(0,0,0,0.1)]">
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
+                  className="max-h-[200px] min-h-[40px] w-full flex-1 resize-none bg-transparent py-2 text-[15px] leading-6 text-zinc-900 outline-none placeholder:text-zinc-400 disabled:text-zinc-400"
+                  placeholder="Type a message…"
+                  value={input}
+                  disabled={sending}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleSend();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  aria-label="Send"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white shadow-sm transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400"
+                  disabled={sending || input.trim() === ''}
+                  onClick={() => void handleSend()}
+                >
+                  <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M12 19V5" />
+                    <path d="m5 12 7-7 7 7" />
+                  </svg>
+                </button>
+              </div>
+              <p className="mt-2 text-center text-[11px] text-zinc-400">
+                Bellhop only proposes. Nothing is booked until you confirm the card.
+              </p>
+            </div>
+          </div>
+        </section>
 
         {traceOpen ? (
-          <div className="w-full shrink-0 lg:w-96">
+          <aside className="absolute inset-y-0 right-0 z-10 flex w-full max-w-md flex-col border-l border-zinc-200 bg-white shadow-xl lg:static lg:w-[26rem] lg:shadow-none">
             <TracePanel events={trace} onClear={() => setTrace([])} />
-          </div>
+          </aside>
         ) : null}
       </div>
     </Layout>
+  );
+}
+
+const SUGGESTIONS = [
+  'Find a plumber for my kitchen tap this week, mornings only, under ₹1,500 in Indiranagar',
+  'Book an electrician in Koramangala tomorrow afternoon',
+  'Show my upcoming bookings',
+  'Move my AC servicing to Saturday',
+];
+
+function EmptyState({ onPick }: { onPick: (text: string) => void }): React.ReactElement {
+  return (
+    <div className="flex flex-col items-center pt-[8vh] text-center animate-rise">
+      <BrandMark className="size-12 rounded-2xl" />
+      <h1 className="mt-5 text-2xl font-semibold tracking-tight text-zinc-900">What can I sort out for you?</h1>
+      <p className="mt-2 max-w-md text-sm text-zinc-500">
+        Plumbers, electricians, AC servicing. I find the options and hold a slot, and you approve before anything is booked.
+      </p>
+      <div className="mt-8 grid w-full gap-2 sm:grid-cols-2">
+        {SUGGESTIONS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onPick(s)}
+            className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-left text-sm text-zinc-700 shadow-sm transition hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md"
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MessageRow({ message: m }: { message: ChatMessage }): React.ReactElement {
+  const time = new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (m.role === 'system') {
+    return (
+      <div className="flex justify-center">
+        <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-500">{m.text}</span>
+      </div>
+    );
+  }
+  if (m.role === 'user') {
+    return (
+      <div className="group flex flex-col items-end animate-rise">
+        <div className="max-w-[85%] rounded-3xl rounded-br-lg bg-zinc-900 px-4 py-2.5 text-[15px] leading-6 text-white shadow-sm">
+          <p className="whitespace-pre-wrap">{m.text}</p>
+        </div>
+        <span className="mt-1 pr-2 text-[10px] text-zinc-400 opacity-0 transition group-hover:opacity-100">{time}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="group flex gap-3 animate-rise">
+      <BrandMark className="mt-0.5 size-7 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 flex items-center gap-2">
+          <span className="text-xs font-semibold text-zinc-900">Bellhop</span>
+          <span className="text-[10px] text-zinc-400 opacity-0 transition group-hover:opacity-100">{time}</span>
+        </div>
+        <Markdown text={m.text} />
+        {m.proposalId ? (
+          <a
+            href="#approval-card"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 ring-1 ring-inset ring-amber-200 transition hover:bg-amber-100"
+          >
+            <span className="size-1.5 rounded-full bg-amber-500" aria-hidden />
+            see approval card
+          </a>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function TraceIcon(): React.ReactElement {
+  return (
+    <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3 12h4l3 8 4-16 3 8h4" />
+    </svg>
   );
 }

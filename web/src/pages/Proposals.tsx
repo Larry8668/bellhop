@@ -146,10 +146,10 @@ export function Proposals(): React.ReactElement {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-8">
         <div>
-          <h1 className="text-lg font-semibold text-zinc-900">Proposals</h1>
-          <p className="text-sm text-zinc-600">
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Proposals</h1>
+          <p className="mt-1 text-sm text-zinc-500">
             Pending actions need your approval before anything runs.
           </p>
         </div>
@@ -162,7 +162,9 @@ export function Proposals(): React.ReactElement {
         ) : (
           <>
             {pending.length === 0 && detachedOutcomes.length === 0 ? (
-              <p className="text-sm text-zinc-500">No pending proposals.</p>
+              <div className="rounded-2xl border border-zinc-200/80 bg-white px-5 py-10 text-center text-sm text-zinc-500 shadow-sm">
+                No pending proposals.
+              </div>
             ) : null}
             {pending.length > 0 ? (
               <ul className="space-y-4">
@@ -175,7 +177,7 @@ export function Proposals(): React.ReactElement {
                       id={`proposal-${p.id}`}
                       className={
                         highlight
-                          ? 'rounded-xl ring-2 ring-amber-400 ring-offset-2'
+                          ? 'rounded-2xl ring-2 ring-indigo-400 ring-offset-2'
                           : undefined
                       }
                     >
@@ -203,23 +205,23 @@ export function Proposals(): React.ReactElement {
           </>
         )}
 
-        <section className="rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-4">
-          <h2 className="text-sm font-semibold text-zinc-900">New proposal (dev)</h2>
+        <section className="rounded-2xl border border-dashed border-zinc-300 bg-white/60 p-4 sm:p-5">
+          <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">New proposal (dev)</h2>
           <form className="mt-3 space-y-3" onSubmit={(e) => void handleCreateDevProposal(e)}>
-            <label className="flex flex-col gap-1 text-xs text-zinc-600">
+            <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
               Provider id
               <input
-                className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900"
+                className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
                 value={formProviderId}
                 onChange={(e) => setFormProviderId(e.target.value)}
                 placeholder="prov-123"
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs text-zinc-600">
+            <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
               Service
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <select
-                  className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900"
+                  className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
                   value={formService}
                   onChange={(e) => setFormService(e.target.value)}
                 >
@@ -232,7 +234,7 @@ export function Proposals(): React.ReactElement {
                 </select>
                 {formService === '__other__' ? (
                   <input
-                    className="flex-1 rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900"
+                    className="flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
                     value={formServiceOther}
                     onChange={(e) => setFormServiceOther(e.target.value)}
                     placeholder="Custom service"
@@ -241,20 +243,20 @@ export function Proposals(): React.ReactElement {
               </div>
             </label>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-1 text-xs text-zinc-600">
+              <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
                 Slot start
                 <input
                   type="datetime-local"
-                  className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900"
+                  className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
                   value={formSlotStart}
                   onChange={(e) => setFormSlotStart(e.target.value)}
                 />
               </label>
-              <label className="flex flex-col gap-1 text-xs text-zinc-600">
+              <label className="flex flex-col gap-1 text-xs font-medium text-zinc-600">
                 Slot end
                 <input
                   type="datetime-local"
-                  className="rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900"
+                  className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-500/10"
                   value={formSlotEnd}
                   onChange={(e) => setFormSlotEnd(e.target.value)}
                 />

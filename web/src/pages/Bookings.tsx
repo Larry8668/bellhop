@@ -92,24 +92,24 @@ export function Bookings(): React.ReactElement {
     return (
       <li
         key={b.id}
-        className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+        className="flex flex-col gap-3 rounded-2xl border border-zinc-200/80 bg-white p-4 text-sm shadow-sm sm:flex-row sm:items-center sm:justify-between"
       >
         <div>
-          <div className="font-medium text-zinc-900">{b.service}</div>
-          <div className="text-xs text-zinc-600">{b.providerName}</div>
-          <div className="mt-1 text-xs text-zinc-500">
+          <div className="text-[15px] font-semibold capitalize text-zinc-900">{b.service.replace(/_/g, ' ')}</div>
+          <div className="text-sm text-zinc-600">{b.providerName}</div>
+          <div className="mt-1 text-xs tabular-nums text-zinc-500">
             {new Date(b.slot.start).toLocaleString()} →{' '}
             {new Date(b.slot.end).toLocaleString()}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge tone="info">{b.price} INR</Badge>
+          <Badge tone="default" className="tabular-nums">{b.price} INR</Badge>
           <Badge tone={statusTone(b.status)}>{b.status}</Badge>
           {canRequestCancel ? (
             <>
               <Button
                 variant="secondary"
-                className="text-xs"
+                className="!px-3 !py-1.5 !text-xs"
                 disabled={cancelBusyId === b.id}
                 onClick={() => void handleCancelBooking(b.id)}
               >
@@ -119,7 +119,7 @@ export function Bookings(): React.ReactElement {
                 <>
                   <Button
                     variant="danger"
-                    className="text-xs"
+                    className="!px-3 !py-1.5 !text-xs"
                     disabled={simulateBusyId === b.id}
                     onClick={() => void handleSimulateCancel(b.id)}
                   >
@@ -127,7 +127,7 @@ export function Bookings(): React.ReactElement {
                   </Button>
                   <Button
                     variant="ghost"
-                    className="text-xs"
+                    className="!px-3 !py-1.5 !text-xs"
                     disabled={simulateBusyId === b.id}
                     onClick={() => setArmedId(null)}
                   >
@@ -137,7 +137,7 @@ export function Bookings(): React.ReactElement {
               ) : (
                 <Button
                   variant="secondary"
-                  className="text-xs"
+                  className="!px-3 !py-1.5 !text-xs"
                   onClick={() => setArmedId(b.id)}
                 >
                   Simulate provider cancel
@@ -152,10 +152,10 @@ export function Bookings(): React.ReactElement {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-8">
         <div>
-          <h1 className="text-lg font-semibold text-zinc-900">Bookings</h1>
-          <p className="text-sm text-zinc-600">Past and upcoming visits.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Bookings</h1>
+          <p className="mt-1 text-sm text-zinc-500">Past and upcoming visits.</p>
         </div>
 
         {error ? <ErrorBanner>{error}</ErrorBanner> : null}
@@ -165,19 +165,19 @@ export function Bookings(): React.ReactElement {
         ) : (
           <>
             <section aria-label="Upcoming">
-              <h2 className="text-sm font-semibold text-zinc-900">Upcoming</h2>
+              <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Upcoming</h2>
               {upcoming.length === 0 ? (
-                <p className="mt-2 text-sm text-zinc-500">No upcoming bookings.</p>
+                <p className="mt-3 rounded-2xl border border-dashed border-zinc-300 px-5 py-8 text-center text-sm text-zinc-500">No upcoming bookings.</p>
               ) : (
-                <ul className="mt-2 space-y-2">{upcoming.map(row)}</ul>
+                <ul className="mt-3 space-y-3">{upcoming.map(row)}</ul>
               )}
             </section>
             <section aria-label="Past">
-              <h2 className="text-sm font-semibold text-zinc-900">Past</h2>
+              <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">Past</h2>
               {past.length === 0 ? (
-                <p className="mt-2 text-sm text-zinc-500">No past bookings.</p>
+                <p className="mt-3 rounded-2xl border border-dashed border-zinc-300 px-5 py-8 text-center text-sm text-zinc-500">No past bookings.</p>
               ) : (
-                <ul className="mt-2 space-y-2">{past.map(row)}</ul>
+                <ul className="mt-3 space-y-3">{past.map(row)}</ul>
               )}
             </section>
           </>
