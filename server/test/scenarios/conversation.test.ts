@@ -535,3 +535,79 @@ describe('typed confirmation and proposal constraints', () => {
     h.assertInvariants();
   });
 });
+
+describe('live-run regressions (local Qwen)', () => {
+  let h: CoreHarness;
+  let provider: ProviderSummary;
+  let slot: Slot;
+
+  beforeEach(async () => {
+    h = await createCoreHarness();
+    provider = await findProvider(h);
+    slot = provider.slots[0]!;
+  });
+  afterEach(async () => {
+    await h.close();
+  });
+
+  it('repairs a provider name and datetimes without seconds in propose_booking', async () => {
+    const date_range = rangeOf(h);
+    const noSeconds = (iso: string): string => iso.replace(/:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/, '$2');
+    const model = scriptedModel([
+      toolCallStep('search_providers', { service: 'plumber', area: 'Indiranagar', date_range }, 'qwen-search'),
+      toolCallStep(
+        'propose_booking',
+        {
+          provider_id: provider.name,
+          service: 'plumber',
+          slot: { ...slot, start: noSeconds(slot.start), end: noSeconds(slot.end) },
+        },
+        'qwen-propose',
+      ),
+      textStep('Please confirm the booking on the card.'),
+    ]);
+    const result = await turn(h, model, 'Find a plumber in Indiranagar and propose the first slot');
+    expect(result.exit).toBe('proposed');
+    expect(result.proposalId).toBeDefined();
+    expect(h.engine.proposals.listPending(h.userId)).toHaveLength(1);
+    expect(h.providerBookings()).toHaveLength(0);
+  });
+
+  it('propose_booking recovers a task stuck in SEARCHING (SEARCHING -> COMPARING -> PROPOSED)', async () => {
+    h.engine.taskState.upsert(h.userId, { state: 'SEARCHING', updated_at: h.clock.now().toISOString() });
+    const model = scriptedModel([
+      toolCallStep('propose_booking', { provider_id: provider.id, service: 'plumber', slot }, 'stuck-propose'),
+      textStep('Please confirm the booking on the card.'),
+    ]);
+    const result = await turn(h, model, 'Book the first one');
+    expect(JSON.stringify(model.doGenerateCalls[1] ?? {})).not.toMatch(/cannot propose from state SEARCHING/);
+    expect(h.engine.proposals.listPending(h.userId)).toHaveLength(1);
+    expect(stateOf(h)).toBe('PROPOSED');
+    expect(result.exit).toBe('proposed');
+  });
+
+  it('nudges once when the model claims a proposal without calling the tool', async () => {
+    const model = scriptedModel([
+      textStep('I will propose booking the first plumber, please confirm on the card.'),
+      toolCallStep('propose_booking', { provider_id: provider.id, service: 'plumber', slot }, 'nudged-propose'),
+      textStep('Please confirm the booking on the card.'),
+    ]);
+    const result = await turn(h, model, 'Book the first one');
+    expect(JSON.stringify(model.doGenerateCalls[1] ?? {})).toMatch(/did not call propose_booking/);
+    expect(result.exit).toBe('proposed');
+    expect(result.proposalId).toBeDefined();
+    expect(h.engine.proposals.listPending(h.userId)).toHaveLength(1);
+  });
+
+  it('replaces a proposal claim with the honest no-card reply when the model never calls the tool', async () => {
+    const claim = 'I will propose booking the first plumber, please confirm on the card.';
+    const model = scriptedModel([textStep(claim), textStep(claim)]);
+    const result = await turn(h, model, 'Book the first one');
+    expect(result.reply).toBe(
+      "I haven't prepared a booking card yet. Tell me which provider and time you'd like, and I'll put it up for you to confirm.",
+    );
+    expect(result.exit).not.toBe('proposed');
+    expect(proposalCount(h)).toBe(0);
+    expect(h.engine.proposals.listPending(h.userId)).toHaveLength(0);
+  });
+});

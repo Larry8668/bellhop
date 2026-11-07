@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ModelMessage } from 'ai';
-import { buildTurnContext, clearStaleToolResults, staleToolStub } from '../../src/harness/context.js';
+import { buildTurnContext, clearStaleToolResults, formatNow, staleToolStub } from '../../src/harness/context.js';
 import type { ContextLogEntry, HarnessMemory, MemoryFact } from '../../src/harness/types.js';
 
 function fact(partial: Partial<MemoryFact> & Pick<MemoryFact, 'id' | 'status'>): MemoryFact {
@@ -144,5 +144,29 @@ describe('context layer', () => {
         (logs[0]?.sections.history ?? 0) +
         (logs[0]?.sections.tools ?? 0),
     );
+  });
+
+  it('formatNow converts UTC to IST across midnight (weekday and date roll forward)', () => {
+    // 2026-11-07 20:00Z is Sunday 2026-11-08 01:30 IST.
+    const line = formatNow(new Date('2026-11-07T20:00:00Z'));
+    expect(line).toContain('Current time: Sunday 2026-11-08T01:30:00+05:30 (Asia/Kolkata).');
+    expect(formatNow(new Date('2026-11-07T10:00:00Z'))).toContain('Saturday 2026-11-07T15:30:00+05:30');
+  });
+
+  it('adds the IST current time and day-part rules to instructions only when now is passed', () => {
+    const base = {
+      userId: 'user_1',
+      runId: 'turn_now',
+      step: 0,
+      messages: [{ role: 'user', content: 'plumber tomorrow afternoon' }] as ModelMessage[],
+      task: undefined,
+      budgetTokens: 100_000,
+      toolsTokens: 0,
+    };
+    const withNow = buildTurnContext({ ...base, now: new Date('2026-11-07T10:00:00Z') });
+    expect(withNow.instructions).toContain('Saturday 2026-11-07T15:30:00+05:30');
+    expect(withNow.instructions).toContain('afternoon 12:00-17:00');
+    expect(withNow.instructions).toContain('never ask the user for ISO format');
+    expect(buildTurnContext(base).instructions).not.toContain('Current time:');
   });
 });
