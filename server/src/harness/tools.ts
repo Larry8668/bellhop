@@ -374,6 +374,12 @@ export function buildAgentTools(deps: AgentToolDeps): ToolSet {
           if (task?.service != null && input.service !== undefined && input.service !== task.service) {
             return toolError(`task service is ${task.service}, not ${input.service}`);
           }
+          // A search that errored mid-turn (or an earlier turn cut short) can leave the task in
+          // SEARCHING after results were shown; proposals are only legal from COMPARING.
+          if (engine.taskState.get(userId)?.state === 'SEARCHING') {
+            const moved = transition('COMPARING', 'results already shown');
+            if (moved !== undefined) return toolError(moved);
+          }
           const result = await engine.proposals.proposeBooking(userId, {
             provider_id: input.provider_id,
             slot: input.slot,
