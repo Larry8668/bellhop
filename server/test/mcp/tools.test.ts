@@ -194,6 +194,10 @@ describe('MCP server: search_providers success', () => {
     const text = (result.content as Array<{ type: string; text?: string }>)[0]?.text ?? '';
     expect(text).toContain('Test Plumber');
     expect(text).toContain('500');
+    // Clients like Cursor only show the model the text, so it must carry what propose_booking needs.
+    expect(text).toContain(`[${searchOutput.providers[0]!.id}]`);
+    expect(text).toContain('start 2026-11-10T10:00:00.000Z  end 2026-11-10T11:00:00.000Z');
+    expect(text).toContain('propose_booking');
   });
 });
 

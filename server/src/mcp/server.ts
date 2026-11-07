@@ -3,13 +3,13 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import {
   GetProviderInputSchema,
   SearchProvidersInputSchema,
-  type ProviderSummary,
 } from '@bellhop/shared/contracts';
 import { childLogger, type Logger } from '@bellhop/shared/logger';
 import { z } from 'zod';
 import type { Principal } from '../auth/principal.js';
 import type { ProviderClient } from '../provider-client/index.js';
 import { ProviderError } from '../provider-client/index.js';
+import { formatBookings, formatProviderDetail, formatProviderList } from './format.js';
 import { fenceReviews } from '../core/untrusted.js';
 import type { CoreEngine } from '../core/engine.js';
 import type { UserQueue } from '../core/queue/user-queue.js';
@@ -45,13 +45,6 @@ function providerErrorResult(err: ProviderError, log: Logger): CallToolResult {
   };
 }
 
-function summarizeProviders(providers: ProviderSummary[]): string {
-  if (providers.length === 0) return 'No providers found.';
-  return providers
-    .map((p) => `${p.name} — ₹${p.price}, ${p.rating}★, ${p.slots.length} slot(s)`)
-    .join('\n');
-}
-
 /**
  * Builds one `McpServer` bound to a single resolved `principal` (plan §15).
  * Call this once per request in stateless mode — a fresh instance keeps
@@ -84,14 +77,14 @@ export function createMcpServer({
     'search_providers',
     {
       description:
-        'Search service providers by service type, area, and date range. Returns a short text summary (name, price, rating, slot count) plus structured provider data.',
+        'Search service providers by service type, area, and date range. Returns each provider with its id, price, rating, and open slots (exact start/end), which propose_booking needs.',
       inputSchema: SearchProvidersInputSchema.shape,
     },
     async (input) => {
       try {
         const output = await providerClient.search_providers(principal.userId, input, { requestId });
         return {
-          content: [{ type: 'text', text: summarizeProviders(output.providers) }],
+          content: [{ type: 'text', text: formatProviderList(output.providers) }],
           structuredContent: output,
         };
       } catch (err) {
@@ -113,12 +106,7 @@ export function createMcpServer({
         const output = await providerClient.get_provider(principal.userId, input, { requestId });
         const fenced = { provider: fenceReviews(output.provider) };
         return {
-          content: [
-            {
-              type: 'text',
-              text: `${fenced.provider.name} — ₹${fenced.provider.price}, ${fenced.provider.rating}★, ${fenced.provider.reviews.length} review(s)`,
-            },
-          ],
+          content: [{ type: 'text', text: formatProviderDetail(fenced.provider) }],
           structuredContent: fenced,
         };
       } catch (err) {
@@ -141,13 +129,7 @@ export function createMcpServer({
           { user_id: principal.userId },
           { requestId },
         );
-        const summary =
-          output.bookings.length === 0
-            ? 'No bookings.'
-            : output.bookings
-                .map((b) => `${b.provider_name} — ${b.status} (${b.when}, ${b.slot.start})`)
-                .join('\n');
-        return { content: [{ type: 'text', text: summary }], structuredContent: output };
+        return { content: [{ type: 'text', text: formatBookings(output.bookings) }], structuredContent: output };
       } catch (err) {
         if (ProviderError.isProviderError(err)) return providerErrorResult(err, log);
         throw err;
