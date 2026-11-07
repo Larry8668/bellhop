@@ -18,7 +18,7 @@ Bellhop is an errand agent that never books without your say-so. The model can o
 
 ## Harness & context
 - `prepareStep` builds every step's context in code: a short system prompt; the relevant **active** memories; a task summary generated from `task_state`; trimmed history. Older `search_providers`/`get_provider` payloads are replaced with stubs. There is no LLM summarizer.
-- Limits: 8 model calls per turn (`stepCountIs`), 15 tool calls, a 60 s wall clock (`AbortSignal.timeout`). Every exit path ends with a user-facing message.
+- Limits: 8 model calls per turn (`stepCountIs`), 15 tool calls, a 120 s wall clock (`AbortSignal.timeout`; local model calls take 13–27 s each). Every exit path ends with a user-facing message.
 - Provider free text such as reviews is fenced as untrusted data. It never flows into tool arguments, approvals, memory writes or `user_id`.
 
 ## Memory

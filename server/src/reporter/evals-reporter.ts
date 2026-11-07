@@ -13,6 +13,7 @@ export interface EvalsRow {
   expected: string;
   actual: string;
   result: EvalsResult;
+  notes: string;
 }
 
 /** Plan §16 order: core scenarios (`S`) before the hold/price matrix (`H`). */
@@ -83,13 +84,13 @@ export function renderEvals(rows: readonly EvalsRow[], allScenarioIds: readonly 
     '',
     `Totals: ${passed} passed / ${failed} failed / ${skipped} skipped (${sorted.length} total)`,
     '',
-    '| Scenario | Test | Expected | Actual | Result |',
-    '|---|---|---|---|---|',
+    '| Scenario | Test | Expected | Actual | Result | Notes |',
+    '|---|---|---|---|---|---|',
   ];
 
   for (const row of sorted) {
     lines.push(
-      `| ${escapeCell(row.scenario)} | ${escapeCell(row.test)} | ${escapeCell(row.expected)} | ${escapeCell(row.actual)} | ${row.result} |`,
+      `| ${escapeCell(row.scenario)} | ${escapeCell(row.test)} | ${escapeCell(row.expected)} | ${escapeCell(row.actual)} | ${row.result} | ${escapeCell(row.notes)} |`,
     );
   }
 
@@ -118,6 +119,13 @@ function defaultActual(testCase: TestCase, result: EvalsResult): string {
   return message === undefined ? 'fail' : `fail: ${firstLine(message)}`;
 }
 
+/** Where the row came from and how long it took; tests may override via `task.meta.notes`. */
+function defaultNotes(testCase: TestCase): string {
+  const file = testCase.module.moduleId.split('/test/').pop() ?? testCase.module.moduleId;
+  const ms = testCase.diagnostic()?.duration;
+  return ms === undefined ? `test/${file}` : `test/${file} · ${Math.round(ms)} ms · scripted model`;
+}
+
 function toRow(testCase: TestCase, scenario: string): EvalsRow {
   const meta = testCase.meta();
   const result = rowResult(testCase);
@@ -127,6 +135,7 @@ function toRow(testCase: TestCase, scenario: string): EvalsRow {
     expected: meta.expected ?? expectedFromName(testCase.name, scenario),
     actual: meta.actual ?? defaultActual(testCase, result),
     result,
+    notes: meta.notes ?? defaultNotes(testCase),
   };
 }
 
