@@ -11,7 +11,7 @@ describe('loadConfig', () => {
     expect(config.NUM_CTX).toBe(8192);
     expect(config.LIMIT_MODEL_CALLS_PER_TURN).toBe(8);
     expect(config.LIMIT_TOOL_CALLS_PER_TURN).toBe(15);
-    expect(config.LIMIT_TURN_WALL_CLOCK_MS).toBe(60000);
+    expect(config.LIMIT_TURN_WALL_CLOCK_MS).toBe(120000);
     expect(config.LIMIT_STATUS_CHECKS).toBe(3);
     expect(config.LIMIT_RETRIES_PER_TOOL).toBe(2);
     expect(config.CONTEXT_BUDGET_TOKENS).toBe(8192);

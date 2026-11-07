@@ -1,4 +1,5 @@
 import { tool, type ToolSet } from 'ai';
+import { rememberSearchResults } from './repair.js';
 import { z } from 'zod';
 import type { Clock } from '@bellhop/shared/clock';
 import {
@@ -290,6 +291,7 @@ export function buildAgentTools(deps: AgentToolDeps): ToolSet {
           const output = await withRetries('search_providers', () =>
             providerClient.search_providers(userId, input, { requestId: deps.runId }),
           );
+          rememberSearchResults(userId, output.providers);
           const after = transition('COMPARING', 'search results ready');
           if (after !== undefined) return toolError(after);
           return { ok: true, providers: output.providers };

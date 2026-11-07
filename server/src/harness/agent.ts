@@ -1,3 +1,4 @@
+import { repairToolCallFor } from './repair.js';
 import type Database from 'better-sqlite3';
 import { stepCountIs, ToolLoopAgent, type LanguageModel, type ModelMessage } from 'ai';
 import type { Clock } from '@bellhop/shared/clock';
@@ -125,7 +126,15 @@ function exitForOutcome(outcome: ExecutionOutcome): TurnExit {
   }
 }
 
+const PROPOSAL_CLAIM = /\b(i(?:'ll| will| have|'ve)? propos|proposed|confirm (?:it )?on the card|approval card|please confirm)/i;
+const PROPOSAL_NUDGE =
+  '(Bellhop system) You described a proposal but did not call propose_booking, so no card exists. ' +
+  'Call propose_booking now with the exact provider_id and slot from the search results, or ask the user which option they want.';
+const NO_CARD_REPLY =
+  "I haven't prepared a booking card yet. Tell me which provider and time you'd like, and I'll put it up for you to confirm.";
+
 function guardModelReply(reply: string, exit: TurnExit): string {
+  if (exit !== 'proposed' && PROPOSAL_CLAIM.test(reply) && !reply.includes('?')) return NO_CARD_REPLY;
   if (exit === 'booked' || exit === 'unconfirmed' || exit === 'limit_reached' || exit === 'failed') return reply;
   if (!CLAIMS_DONE.test(reply)) return reply;
   return exit === 'proposed' ? CLAIM_PROPOSED_REPLY : CLAIM_REPLY;
@@ -268,6 +277,7 @@ export async function runTurn(deps: RunTurnDeps, input: TurnInput): Promise<Turn
       maxRetries: 0,
       temperature: 0,
       toolCallConcurrency: 1,
+      repairToolCall: repairToolCallFor(userId),
       prepareStep: ({ messages: stepMessages, stepNumber }) => {
         const built = buildTurnContext({
           userId,
@@ -325,10 +335,28 @@ export async function runTurn(deps: RunTurnDeps, input: TurnInput): Promise<Turn
       },
     });
 
-    const result = await agent.generate({
+    let result = await agent.generate({
       messages: history,
       abortSignal: signal,
     });
+    // Small local models sometimes *say* they proposed without calling propose_booking.
+    // One code-driven nudge to make the real tool call; otherwise the reply is corrected below.
+    if (
+      !signal.aborted &&
+      flags.proposalId === undefined &&
+      !budget.exceeded &&
+      !flags.retriesExhausted &&
+      !flags.unexpected &&
+      result.steps.length < deps.limits.modelCalls &&
+      PROPOSAL_CLAIM.test(result.text)
+    ) {
+      log.info({ runId }, 'model claimed a proposal without calling propose_booking; nudging once');
+      emit({ ts: deps.clock.now().toISOString(), type: 'model_call', summary: 'nudge: proposal claimed without tool call' });
+      result = await agent.generate({
+        messages: [...history, ...result.response.messages, { role: 'user', content: PROPOSAL_NUDGE }],
+        abortSignal: signal,
+      });
+    }
     if (signal.aborted) {
       move('LIMIT_EXCEEDED', 'wall clock');
       return finish(WALL_LIMIT_REPLY, 'limit_reached');
