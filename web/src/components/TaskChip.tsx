@@ -17,7 +17,7 @@ function asText(value: unknown): string | null {
 export function TaskChip({ task }: { task: TaskState | null }): React.ReactElement {
   if (!task) {
     return (
-      <p className="mt-2 text-xs text-zinc-500" data-testid="task-chip">
+      <p className="mt-2 text-xs text-zinc-400" data-testid="task-chip">
         No active task
       </p>
     );
@@ -32,7 +32,10 @@ export function TaskChip({ task }: { task: TaskState | null }): React.ReactEleme
 
   return (
     <div className="mt-2 flex flex-wrap items-center gap-1.5" data-testid="task-chip">
-      <Badge tone="info">{task.state}</Badge>
+      <Badge tone="info">
+        <span className="size-1.5 rounded-full bg-sky-500" aria-hidden />
+        {task.state}
+      </Badge>
       {service ? <Badge>{service}</Badge> : null}
       {area ? <Badge>{area}</Badge> : null}
       {windowLabel ? <Badge>{windowLabel}</Badge> : null}

@@ -48,9 +48,12 @@ export function TracePanel({
   }, [events]);
 
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white">
-      <div className="flex items-center justify-between border-b border-zinc-100 px-3 py-2">
-        <span className="text-sm font-medium text-zinc-900">Trace</span>
+    <div className="flex min-h-0 flex-1 flex-col bg-white">
+      <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-2.5">
+        <div>
+          <span className="text-sm font-semibold text-zinc-900">Trace</span>
+          <span className="ml-2 text-xs text-zinc-400 tabular-nums">{events.length} events</span>
+        </div>
         <Button
           variant="ghost"
           className="!py-1"
@@ -63,27 +66,27 @@ export function TracePanel({
       <ul
         ref={listRef}
         aria-label="Trace events"
-        className="max-h-80 space-y-2 overflow-y-auto p-3 text-xs text-zinc-700"
+        className="thin-scroll min-h-0 max-h-[70dvh] flex-1 space-y-1.5 overflow-y-auto p-3 text-xs text-zinc-700 lg:max-h-none"
       >
         {events.length === 0 ? (
-          <li className="text-zinc-400">No trace events yet.</li>
+          <li className="px-1 py-6 text-center text-zinc-400">No trace events yet.</li>
         ) : (
           events.map((e, i) => {
             const key = `${e.ts}-${i}-${e.type}`;
             const expanded = openDetail[key] === true;
             const hasDetail = e.detail !== undefined;
             return (
-              <li key={key} className="rounded border border-zinc-100 bg-zinc-50 p-2">
+              <li key={key} className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-2.5 transition hover:border-zinc-200">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={toneFor(e.type)}>{e.type}</Badge>
-                  <span className="font-mono text-[10px] text-zinc-400">{e.ts}</span>
+                  <span className="ml-auto font-mono text-[10px] text-zinc-400">{e.ts.slice(11, 23) || e.ts}</span>
                 </div>
-                <div className="mt-1 font-medium text-zinc-900">{e.summary}</div>
+                <div className="mt-1.5 break-words font-mono text-[11px] text-zinc-800">{e.summary}</div>
                 {hasDetail ? (
                   <div className="mt-1">
                     <button
                       type="button"
-                      className="text-[11px] font-medium text-zinc-600 underline"
+                      className="text-[11px] font-medium text-indigo-600 hover:text-indigo-700"
                       aria-expanded={expanded}
                       onClick={() =>
                         setOpenDetail((prev) => ({ ...prev, [key]: !expanded }))
@@ -92,7 +95,7 @@ export function TracePanel({
                       {expanded ? 'Hide detail' : 'Show detail'}
                     </button>
                     {expanded ? (
-                      <pre className="mt-1 overflow-x-auto rounded bg-white p-2 font-mono text-[10px] text-zinc-800">
+                      <pre className="thin-scroll mt-1.5 overflow-x-auto rounded-lg bg-zinc-900 p-2.5 font-mono text-[10px] leading-relaxed text-zinc-100">
                         {formatDetail(e.detail)}
                       </pre>
                     ) : null}

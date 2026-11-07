@@ -197,3 +197,13 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 **Decided**
 - A middleware drops `temperature` (current Claude models reject non-default sampling) and sets `effort: low`, `thinking: disabled`. Thinking has to be off: `prepareStep` rebuilds the system prompt each step, and the API rejects thinking blocks replayed under a different system prompt.
 - Demo-only. The plan's local-first default stays; the key never leaves `.env`.
+
+## 2026-11-07 — Web UI revamp (UI only)
+
+**Done**
+- Chat rebuilt as a typical chatbot layout: centered `max-w-3xl` column that fills the viewport, composer pinned at the bottom (pill, autosize, round send), empty state with suggestion prompts, assistant replies without bubbles and rendered as GitHub-flavoured Markdown (`react-markdown` + `remark-gfm`; tables, lists, code, no raw HTML), trace as a right-hand side panel. Patterns borrowed from beautifului.dev (prompt bar, approval card, shimmer loader), rebuilt in Tailwind.
+- Shared look: Inter, dotted canvas, pill nav and buttons, ring badges. Restyled the approval card, outcome card, trace panel, Profile (avatar header, fact rows with kind/status badges, dark MCP snippet block), Bookings, Proposals and Login. Checked with headless screenshots at 1440px and 400px.
+- One system-prompt line: replies render as Markdown, and comparisons of two or more providers or slots use a compact table. Formatting only.
+
+**Verified**
+- Web 19/19, server 348/348. Every string, role and test id the tests query is unchanged.
