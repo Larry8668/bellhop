@@ -26,6 +26,8 @@ function boolEnv(key: string) {
 
 const configSchema = z.object({
   MODEL: z.string().default('qwen3.5:9b'),
+  MODEL_PROVIDER: z.enum(['ollama', 'anthropic']).default('ollama'),
+  ANTHROPIC_MODEL: z.string().default('claude-haiku-5-5'),
   MODEL_FALLBACK: z.string().default('qwen3:8b'),
   OLLAMA_BASE_URL: z.string().default('http://localhost:11434'),
   NUM_CTX: numberEnv('NUM_CTX').default(8192),

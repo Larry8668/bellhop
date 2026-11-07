@@ -18,6 +18,8 @@ Docker alternative: `BOOK_SUCCESS_P=1 docker compose up --build` and open http:/
 
 Each turn takes 20–60 s on a laptop because of local model latency. Use that time to point at the trace panel.
 
+**Faster demo (hosted model, opt-in).** Put `ANTHROPIC_API_KEY` in the root `.env`, then start the server with `npm run start:haiku -w server` instead of `npm start`. Docker: `MODEL_PROVIDER=anthropic BOOK_SUCCESS_P=1 docker compose up --build`. This uses `claude-haiku-5-5` (override with `ANTHROPIC_MODEL`), low effort, thinking off. Everything else is unchanged: same tools, same approval gate, same traces, and the trace shows cost. Measured on the same three-turn script: Qwen 51.7 / 66.0 / 21.2 s (139 s), Haiku 2.9 / 5.6 / 3.3 s (12 s). Ollama is still the default.
+
 ## Personas (password `demo-pass-123`)
 
 | Login | State | Use it for |

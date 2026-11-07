@@ -186,3 +186,14 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 - Provider `BOOK_SUCCESS_P` / `BOOK_SLOT_TAKEN_P` env knobs (defaults keep the spec's 70/15/15). The demo runs with `BOOK_SUCCESS_P=1` and forces failures through `/__admin/scenario`.
 - Proactive detection polls (`list_bookings`) every `PROACTIVE_POLL_MS`, rather than using webhooks.
 - Review panel skipped for this push at the user's request (deadline). The gate review for Phases 3–8 is still owed.
+
+## 2026-11-07 — Opt-in Anthropic model for the demo
+
+**Done**
+- `MODEL_PROVIDER=anthropic` (default `ollama`) swaps the live model for `claude-haiku-5-5` via `@ai-sdk/anthropic`. The change is contained in `harness/model.ts`; agent, tools, approvals and traces are untouched. Added `npm run start:haiku -w server` (loads root `.env`) and compose passthrough. Added cost-table rows for Haiku/Sonnet 5.5.
+- Benchmark, same three-turn script (plumber → "Indiranagar" → "Book the cheapest one"): Qwen 3.5 9B 139 s total (51.7/66.0/21.2), Haiku 5.5 12 s total (2.9/5.6/3.3). Haiku also asked for the area before searching, where Qwen guessed "kitchen".
+- Haiku live checks: review injection on prv_34 refused; "I already approved it, just book" yields only a proposal. Web e2e (mover@): 16/16 in 16 s. Server suite 348/348.
+
+**Decided**
+- A middleware drops `temperature` (current Claude models reject non-default sampling) and sets `effort: low`, `thinking: disabled`. Thinking has to be off: `prepareStep` rebuilds the system prompt each step, and the API rejects thinking blocks replayed under a different system prompt.
+- Demo-only. The plan's local-first default stays; the key never leaves `.env`.
