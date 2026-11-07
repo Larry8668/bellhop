@@ -42,6 +42,8 @@ npm run seed:demo -w server
 # demo@bellhop.local / demo-pass-123
 ```
 
+`seed:demo` is idempotent. For the demo personas (`fresh@`, `returning@`, `mover@`, all `demo-pass-123`) run `npm run seed:demo-users -w server` with the provider running. See `DEMO.md` for the recording script.
+
 `seed:demo` is idempotent. `npm run db:seed -w server` seeds the same account. Provider seed data is applied on first boot (and by `npm run db:seed -w provider`); it is not the demo login.
 
 ## Run (dev)

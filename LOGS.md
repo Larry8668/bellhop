@@ -172,3 +172,17 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 **Next**
 - Point `deps.ts` at the real harness, memory, and proactive modules when those branches merge.
 - UI delegate: extend `chatMessageSchema` with `proposalId` so the client keeps the field the server now sends.
+
+## 2026-11-07 — Final push (Claude Code parent, Cursor Grok delegates)
+
+**Done**
+- Phases 3–8 landed through PRs #35–#4x. Parallel Grok 4.7 delegates in worktrees built the harness, memory, proactive, the web UI, the server wiring and docker. A 5-minute watchdog (process alive + Cursor chat-store mtime) watched them. The wiring was built against pinned signatures with placeholders, then swapped to the real modules at merge.
+- Live checks against qwen3.5:9b found three bugs that scripted evals could not see (BUGS #4–6): no current date in the prompt; near-miss tool calls (a provider name used as `provider_id`, datetimes without seconds); a task stuck in SEARCHING and replies claiming a proposal with no tool call. Fixes: an IST time line in the prompt; code-only `repairToolCall`; a SEARCHING→COMPARING step before proposing; one nudge, then honest fallback text.
+- Live e2e through the web origin as `fresh@`: clarify → search → card → wrong-hash 409 → confirm → booked → SSE trace → dev provider-cancel → proactive notice → replacement card pending: 16/16. MCP black-box suite (Haiku): 15 PASS / 0 FAIL.
+- Timeout-after-success captured live (forced `TIMEOUT_BOOKED`): book timeout → VERIFYING → `get_booking_status` → booked → DONE, no retry.
+
+**Decided**
+- Turn wall clock default 60 s → 120 s: local model calls take 13–27 s each on this laptop.
+- Provider `BOOK_SUCCESS_P` / `BOOK_SLOT_TAKEN_P` env knobs (defaults keep the spec's 70/15/15). The demo runs with `BOOK_SUCCESS_P=1` and forces failures through `/__admin/scenario`.
+- Proactive detection polls (`list_bookings`) every `PROACTIVE_POLL_MS`, rather than using webhooks.
+- Review panel skipped for this push at the user's request (deadline). The gate review for Phases 3–8 is still owed.

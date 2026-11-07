@@ -112,10 +112,13 @@ Persistent next-steps list. Move items to `LOGS.md` when done. Keep phases in sy
 
 ## Phase 8 — Ship
 
-- [ ] docker-compose (provider, server, web; Ollama on host)
-- [ ] DESIGN.md (1 page) from LOGS.md; annotated trace excerpt
-- [ ] Final EVALS.md; ≥3 entries in BUGS.md
-- [ ] Demo video (3–5 min); export this Cursor transcript to `docs/transcripts/`
+- [x] docker-compose (provider, server, web; Ollama on host) — PR #35, personas seeded on boot
+- [x] DESIGN.md (1 page) with annotated live timeout-after-success trace (`traces/examples/`)
+- [x] Final EVALS.md (39/39 scenarios); BUGS.md has 6 entries with regression tests
+- [x] Cursor transcripts exported to `docs/transcripts/` (PR #36); `DEMO.md` runbook + `seed:demo-users` personas
+- [ ] Demo video (3–5 min) — user, following `DEMO.md`
+- [ ] Export the Claude Code session transcript of 2026-11-07 to `docs/transcripts/`
+- [ ] Known rough edge: on a vague first message qwen3.5:9b may search with a guessed area before asking
 
 ## Backlog (not a priority)
 
