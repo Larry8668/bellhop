@@ -47,8 +47,13 @@ export function SessionProvider({ children }: { children: ReactNode }): React.Re
   }, [refresh]);
 
   const signOut = useCallback(async (): Promise<void> => {
-    await api.signOut();
-    setUser(null);
+    try {
+      await api.signOut();
+    } catch (err) {
+      log.error({ err }, 'sign out failed');
+    } finally {
+      setUser(null);
+    }
   }, []);
 
   const value = useMemo(

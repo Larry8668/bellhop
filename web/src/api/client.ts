@@ -177,7 +177,11 @@ export const httpApi: Api = {
     ),
 
   signOut: () =>
-    fetchOk(endpoints.signOut, { method: 'POST' }),
+    fetchOk(endpoints.signOut, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    }),
 
   me: async () => {
     const response = await fetch(endpoints.me, { credentials: 'include' });

@@ -215,3 +215,7 @@ Dated working log: what was done, what was decided, what's next. Complements `BU
 - Persona bookings now land 2–5 days out, so reschedule, cancel and provider-cancel still work during a demo; before, they could fall earlier the same day and turn into past bookings.
 - Home-area facts are tagged `general` plus `area:<x>`. Before, a new errand (no area yet) never received the saved area and the agent re-asked it. Now it's included as a default and still dropped when the user names a different area.
 - Exported this Claude Code session to `docs/transcripts/claude-code-final-session.md` (secrets and private-brief contents redacted); masked the brief filename in `cursor-main-session.md`.
+
+## 2026-11-07 — Sign-out fix
+
+- Sign out did nothing: the client POSTed `/api/auth/sign-out` with no body, Better Auth answered 415 (Content-Type required), and the thrown error skipped the redirect. Now it sends `{}` as JSON, and the session is cleared locally even if the call fails. Checked in headless Chromium: 200, lands on /login, `/` redirects to login afterwards.
