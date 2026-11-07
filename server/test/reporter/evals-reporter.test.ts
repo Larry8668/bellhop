@@ -10,6 +10,7 @@ function row(overrides: Partial<EvalsRow> = {}): EvalsRow {
     expected: 'verified, no duplicate',
     actual: 'pass',
     result: 'pass',
+    notes: '',
     ...overrides,
   };
 }
@@ -23,7 +24,7 @@ describe('renderEvals (pure)', () => {
 
   it('renders one table row per test with the scenario/test/expected/actual/result columns', () => {
     const md = renderEvals([row()], [], FIXED_DATE);
-    expect(md).toContain('| Scenario | Test | Expected | Actual | Result |');
+    expect(md).toContain('| Scenario | Test | Expected | Actual | Result | Notes |');
     expect(md).toContain(
       '| S09 | S09 timeout after success — verified, no duplicate | verified, no duplicate | pass | pass |',
     );
